@@ -9,6 +9,7 @@ import typing
 import random
 import math
 import os
+import pickle
 
 #################################################################################################################################################
 #################################################################################################################################################
@@ -65,6 +66,7 @@ async def fetch_single_rankings_ids(osu: ossapi.OssapiAsync, page: int, counter:
             # we grab their ID and the time we grab their data.
             return None
 
+        # https://github.com/tybug/ossapi/issues/60#issuecomment-2544072157
         except (aiohttp.ContentTypeError, aiohttp.ClientError, aiohttp.ClientOSError, asyncio.TimeoutError) as e:
             await asyncio.sleep(wait_sec)
             continue
@@ -116,6 +118,7 @@ async def fetch_single_user(osu: ossapi.OssapiAsync, user_id: int, counter: Prog
             # we grab their ID and the time we grab their data.
             return None
 
+        # https://github.com/tybug/ossapi/issues/60#issuecomment-2544072157
         except (aiohttp.ContentTypeError, aiohttp.ClientError, aiohttp.ClientOSError, asyncio.TimeoutError) as e:
             await asyncio.sleep(wait_sec)
             continue
@@ -130,18 +133,45 @@ async def fetch_users(osu: ossapi.OssapiAsync, user_ids: list[typing.Any]) -> li
     return [user for user in results if user is not None]
 
 
-async def get_mentions(min_num_users: int) -> tuple[classes.UndirectedGraph, dict]:
+def save_graph_data(filename: str, mentions_graph: classes.UndirectedGraph, current_to_mentions: dict) -> None:
+    with open(filename, "wb") as f:
+        pickle.dump({
+            "mentions_graph": mentions_graph,
+            "current_to_mentions": current_to_mentions
+        }, f)
+
+
+def load_graph_data(filename: str) -> tuple[classes.UndirectedGraph, dict]:
+    with open(filename, "rb") as f:
+        data = pickle.load(f)
+        mentions_graph = data["mentions_graph"]
+        current_to_mentions = data["current_to_mentions"]
+        return mentions_graph, current_to_mentions
+
+
+async def get_mentions(min_num_users: int, use_last_run: bool) -> tuple[classes.UndirectedGraph, dict]:
     '''
     Scrape user data from osu!API. Returns the following:
     * Undirected graph, where an edge exists between player A and B iff player A mentions player B.
     * Map, from username to number of mentions by other players.
 
     Takes past usernames into account.
+
+    If use_last_run is set to True, ignores min_num_users and reads data from disk.
     '''
 
-    num_pages = math.ceil(min_num_users / 50)
+    # Load saved data if specified
+    save_filename = "graph_data.pkl"
+    if use_last_run:
+        if not os.path.exists(save_filename):
+            raise FileNotFoundError(f"Savefile {save_filename} could not be found.")
+        return load_graph_data(save_filename)
 
-    print(f"-- Parsing data for {num_pages * 50} users...")
+    if min_num_users < 1 or min_num_users > 10000:
+        raise ValueError(f"Number of users must be between 1-10000.")
+
+    num_pages = math.ceil(min_num_users / 50)
+    print(f"-- Parsing data for {num_pages * 50} users... This may take a while!")
 
     dotenv.load_dotenv()
     osu = ossapi.OssapiAsync(
@@ -189,6 +219,7 @@ async def get_mentions(min_num_users: int) -> tuple[classes.UndirectedGraph, dic
                 current_to_mentions[referenced_username] += 1
                 mentions_graph.add_edge(current_username, referenced_username)
 
+    save_graph_data(save_filename, mentions_graph, current_to_mentions)
     return mentions_graph, current_to_mentions
 
 #################################################################################################################################################
