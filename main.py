@@ -10,7 +10,7 @@ import time
 
 async def main() -> None:
     start = time.time()
-    mentions_graph, current_to_mentions = await get_mentions(10000)
+    mentions_graph, current_to_mentions = await get_mentions(10000, False)
     end = time.time()
     get_mentions_time_min = (end - start) / 60
 
@@ -20,7 +20,7 @@ async def main() -> None:
     end = time.time()
     generate_graph_time_min = (end - start) / 60
 
-    print("Execution completed!\n")
+    print("\nExecution completed!\n")
     print(f"You can find the image at {image_filename}.")
     print(f"User data parsing took {get_mentions_time_min} minutes.")
     print(f"Graph generation took {generate_graph_time_min} minutes.")
@@ -32,10 +32,6 @@ if __name__ == "__main__":
 #################################################################################################################################################
 
 # TODO
-
-### save/loads
-##### save+overwrite csv(?) data every time
-##### load off by default, add as flag later
 
 ### visualization
 ##### edges go through nodes sometimes; can be misleading. some sort of color coding?
@@ -52,6 +48,7 @@ if __name__ == "__main__":
 ##### dpi, figsize, spring-force (k), iterations, seed
 ##### load dummy data
 ##### filename
+##### edge num vertices
 
 ### readme
 ##### running:
