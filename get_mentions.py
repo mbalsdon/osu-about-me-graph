@@ -15,9 +15,9 @@ import pickle
 #################################################################################################################################################
 
 class ProgressCounter:
-    '''
+    """
     Simple class for progress bar prints.
-    '''
+    """
     def __init__(self, i: int, total: int):
         self.i = i
         self.total = total
@@ -31,7 +31,7 @@ class ProgressCounter:
         filled_length = int(bar_length * progress)
         bar = "=" * filled_length + "-" * (bar_length - filled_length)
         percent = progress * 100
-        print(f'\rProgress: [{bar}] {percent:.1f}% ({self.i}/{self.total})', end='', flush=True)
+        print(f"\rProgress: [{bar}] {percent:.1f}% ({self.i}/{self.total})", end="", flush=True)
 
 #################################################################################################################################################
 #################################################################################################################################################
@@ -133,24 +133,26 @@ async def fetch_users(osu: ossapi.OssapiAsync, user_ids: list[typing.Any]) -> li
     return [user for user in results if user is not None]
 
 
-def save_graph_data(filename: str, mentions_graph: classes.UndirectedGraph, current_to_mentions: dict) -> None:
+def save_graph_data(filename: str, mentions_graph: classes.UndirectedGraph, current_to_mentions: dict, current_to_rank: dict) -> None:
     with open(filename, "wb") as f:
         pickle.dump({
             "mentions_graph": mentions_graph,
-            "current_to_mentions": current_to_mentions
+            "current_to_mentions": current_to_mentions,
+            "current_to_rank": current_to_rank
         }, f)
 
 
-def load_graph_data(filename: str) -> tuple[classes.UndirectedGraph, dict]:
+def load_graph_data(filename: str) -> tuple[classes.UndirectedGraph, dict, dict]:
     with open(filename, "rb") as f:
         data = pickle.load(f)
         mentions_graph = data["mentions_graph"]
         current_to_mentions = data["current_to_mentions"]
-        return mentions_graph, current_to_mentions
+        current_to_rank = data["current_to_rank"]
+        return mentions_graph, current_to_mentions, current_to_rank
 
 
-async def get_mentions(min_num_users: int, use_last_run: bool) -> tuple[classes.UndirectedGraph, dict]:
-    '''
+async def get_mentions(min_num_users: int, use_last_run: bool) -> tuple[classes.UndirectedGraph, dict, dict]:
+    """
     Scrape user data from osu!API. Returns the following:
     * Undirected graph, where an edge exists between player A and B iff player A mentions player B.
     * Map, from username to number of mentions by other players.
@@ -158,11 +160,12 @@ async def get_mentions(min_num_users: int, use_last_run: bool) -> tuple[classes.
     Takes past usernames into account.
 
     If use_last_run is set to True, ignores min_num_users and reads data from disk.
-    '''
+    """
 
     # Load saved data if specified
     save_filename = "graph_data.pkl"
     if use_last_run:
+        print("-- Parsing user save data...")
         if not os.path.exists(save_filename):
             raise FileNotFoundError(f"Savefile {save_filename} could not be found.")
         return load_graph_data(save_filename)
@@ -185,6 +188,7 @@ async def get_mentions(min_num_users: int, use_last_run: bool) -> tuple[classes.
 
     alias_to_current = {}
     current_to_mentions = {}
+    current_to_rank = {}
     mentions_graph = classes.UndirectedGraph()
     username_trie = classes.Trie()
 
@@ -202,6 +206,7 @@ async def get_mentions(min_num_users: int, use_last_run: bool) -> tuple[classes.
                 alias_to_current[previous_username] = current_username
 
         current_to_mentions[current_username] = 0
+        current_to_rank[current_username] = user["global_rank"]
 
         username_trie.insert(current_username)
         for previous_username in previous_usernames:
@@ -219,8 +224,8 @@ async def get_mentions(min_num_users: int, use_last_run: bool) -> tuple[classes.
                 current_to_mentions[referenced_username] += 1
                 mentions_graph.add_edge(current_username, referenced_username)
 
-    save_graph_data(save_filename, mentions_graph, current_to_mentions)
-    return mentions_graph, current_to_mentions
+    save_graph_data(save_filename, mentions_graph, current_to_mentions, current_to_rank)
+    return mentions_graph, current_to_mentions, current_to_rank
 
 #################################################################################################################################################
 #################################################################################################################################################

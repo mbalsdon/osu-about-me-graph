@@ -1,13 +1,12 @@
 import collections
-import typing
 
 #################################################################################################################################################
 #################################################################################################################################################
 
 class UndirectedGraph:
-    '''
+    """
     Adjacency list for an undirected graph.
-    '''
+    """
     def __init__(self):
         self.adj = collections.defaultdict(set)
 
@@ -30,17 +29,17 @@ class UndirectedGraph:
 #################################################################################################################################################
 
 class TrieNode:
-    '''
+    """
     Prefix tree node.
-    '''
+    """
     def __init__(self):
         self.children = {}
         self.is_end_of_word = False
 
 class Trie:
-    '''
+    """
     Prefix tree.
-    '''
+    """
     def __init__(self):
         self.root = TrieNode()
 
@@ -53,9 +52,9 @@ class Trie:
         node.is_end_of_word = True
 
     def find_names_in_document(self, document: str) -> set[str]:
-        '''
+        """
         Return set of names from prefix tree that appear in given document.
-        '''
+        """
         document = document.lower()
         found_names = set()
 
@@ -82,14 +81,14 @@ class Trie:
         return found_names
 
     def get_all_words(self) -> list[str]:
-        '''
+        """
         Return all words stored in the prefix tree.
-        '''
+        """
         words = []
         def dfs(node: TrieNode, current_word: str) -> None:
             if node.is_end_of_word:
                 words.append(current_word)
-    
+
             for char, child in node.children.items():
                 dfs(child, current_word + char)
 
