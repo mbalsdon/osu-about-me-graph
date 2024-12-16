@@ -1,6 +1,3 @@
-import classes
-
-import dotenv
 import ossapi
 import asyncio
 import aiohttp
@@ -82,7 +79,7 @@ async def fetch_rankings_ids(osu: ossapi.OssapiAsync, num_pages: int) -> list[in
     return user_ids
 
 
-async def fetch_single_user(osu: ossapi.OssapiAsync, user_id: int, counter: ProgressCounter) -> typing.Any:
+async def fetch_single_user(osu: ossapi.OssapiAsync, user_id: int, counter: ProgressCounter) -> list[typing.Union[dict, None]]:
     retries = 0
     wait_sec = 1 + random.random()
     while True:
@@ -124,7 +121,7 @@ async def fetch_single_user(osu: ossapi.OssapiAsync, user_id: int, counter: Prog
             continue
 
 
-async def fetch_users(osu: ossapi.OssapiAsync, user_ids: list[typing.Any]) -> list[typing.Any]:
+async def fetch_users(osu: ossapi.OssapiAsync, user_ids: list[typing.Union[dict, None]]) -> list[dict]:
     print("Fetching user data...")
     counter = ProgressCounter(0, len(user_ids))
     tasks = [fetch_single_user(osu, user_id, counter) for user_id in user_ids]
@@ -133,99 +130,55 @@ async def fetch_users(osu: ossapi.OssapiAsync, user_ids: list[typing.Any]) -> li
     return [user for user in results if user is not None]
 
 
-def save_graph_data(filename: str, mentions_graph: classes.UndirectedGraph, current_to_mentions: dict, current_to_rank: dict) -> None:
+def save_users(filename: str, users: list[dict]):
     with open(filename, "wb") as f:
         pickle.dump({
-            "mentions_graph": mentions_graph,
-            "current_to_mentions": current_to_mentions,
-            "current_to_rank": current_to_rank
+            "users": users
         }, f)
 
 
-def load_graph_data(filename: str) -> tuple[classes.UndirectedGraph, dict, dict]:
+def load_users(filename: str) -> list[dict]:
     with open(filename, "rb") as f:
         data = pickle.load(f)
-        mentions_graph = data["mentions_graph"]
-        current_to_mentions = data["current_to_mentions"]
-        current_to_rank = data["current_to_rank"]
-        return mentions_graph, current_to_mentions, current_to_rank
+        users = data["users"]
+        return users
 
+#################################################################################################################################################
+#################################################################################################################################################
 
-async def get_mentions(min_num_users: int, use_last_run: bool) -> tuple[classes.UndirectedGraph, dict, dict]:
+async def scrape_users(min_num_users: int, use_last_run: bool, save_filename: str) -> list[dict]:
     """
-    Scrape user data from osu!API. Returns the following:
-    * Undirected graph, where an edge exists between player A and B iff player A mentions player B.
-    * Map, from username to number of mentions by other players.
-
-    Takes past usernames into account.
-
-    If use_last_run is set to True, ignores min_num_users and reads data from disk.
+    Scrape user data from osu!API.\n
+    Rounds min_num_users up to the nearest multiple of 50.\n
+    If use_last_run is True, ignores min_num_users and reads data from save_filename.\n
+    Returns list of users including:
+        * "current_username": `str`
+        * "previous_usernames": `list[str]`
+        * "about_me": `str`
+        * "follower_count": `int`
+        * "global_rank": `int`
     """
-
-    # Load saved data if specified
-    save_filename = "graph_data.pkl"
     if use_last_run:
-        print("-- Parsing user save data...")
+        print(f"-- Fetching save data from {save_filename}...")
         if not os.path.exists(save_filename):
-            raise FileNotFoundError(f"Savefile {save_filename} could not be found.")
-        return load_graph_data(save_filename)
+            raise FileNotFoundError(f"Savefile {save_filename} could not be found!")
+        return load_users(save_filename)
 
     if min_num_users < 1 or min_num_users > 10000:
-        raise ValueError(f"Number of users must be between 1-10000.")
+        raise ValueError(f"Number of users must be between 1-10000!")
 
     num_pages = math.ceil(min_num_users / 50)
-    print(f"-- Parsing data for {num_pages * 50} users... This may take a while!")
+    print(f"-- Scraping osu!API data for {num_pages * 50} users... This may take a while!")
 
-    dotenv.load_dotenv()
     osu = ossapi.OssapiAsync(
         os.getenv("OSU_API_CLIENT_ID"),
         os.getenv("OSU_API_CLIENT_SECRET"))
 
-    # Fetch user data and sort by follower count (descending) then rank (ascending)
     user_ids = await fetch_rankings_ids(osu, num_pages)
     users = await fetch_users(osu, user_ids)
-    users = sorted(users, key=lambda user: (-user["follower_count"], user["global_rank"]), reverse=False)
 
-    alias_to_current = {}
-    current_to_mentions = {}
-    current_to_rank = {}
-    mentions_graph = classes.UndirectedGraph()
-    username_trie = classes.Trie()
-
-    for user in users:
-        # Populate username mapping with past and present usernames. Someone's current username could be
-        # another's past username. To deal with these conflicts, pick user with higher follower count (or
-        # rank during ties). We sorted the list as such above so we just have to check "not in".
-        current_username = user["current_username"]
-        if current_username not in alias_to_current:
-            alias_to_current[current_username] = current_username
-
-        previous_usernames = user["previous_usernames"]
-        for previous_username in previous_usernames:
-            if previous_username not in alias_to_current:
-                alias_to_current[previous_username] = current_username
-
-        current_to_mentions[current_username] = 0
-        current_to_rank[current_username] = user["global_rank"]
-
-        username_trie.insert(current_username)
-        for previous_username in previous_usernames:
-            username_trie.insert(previous_username)
-
-    for user in users:
-        current_username = user["current_username"]
-        about_me = user["about_me"]
-
-        referenced_aliases = username_trie.find_names_in_document(about_me)
-        for referenced_alias in referenced_aliases:
-            referenced_username = alias_to_current[referenced_alias.lower()]
-
-            if current_username != referenced_username:
-                current_to_mentions[referenced_username] += 1
-                mentions_graph.add_edge(current_username, referenced_username)
-
-    save_graph_data(save_filename, mentions_graph, current_to_mentions, current_to_rank)
-    return mentions_graph, current_to_mentions, current_to_rank
+    save_users(save_filename, users)
+    return users
 
 #################################################################################################################################################
 #################################################################################################################################################

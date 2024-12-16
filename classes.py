@@ -35,45 +35,62 @@ class TrieNode:
     def __init__(self):
         self.children = {}
         self.is_end_of_word = False
+        self.original_word = None  # Store the original word without boundaries
 
 class Trie:
     """
-    Prefix tree.
+    Prefix tree that matches phrases with space/newline boundaries.
     """
     def __init__(self):
         self.root = TrieNode()
 
     def insert(self, word: str) -> None:
-        node = self.root
-        for char in word.lower():
-            if char not in node.children:
-                node.children[char] = TrieNode()
-            node = node.children[char]
-        node.is_end_of_word = True
+        """
+        Insert word into trie with all possible boundary combinations.
+        Stores original word without boundaries.
+        """
+        # Store variations with boundaries
+        variations = [
+            " " + word,
+            word + " ",
+            " " + word + " ",
+            "\n" + word,
+            word + "\n",
+            "\n" + word + "\n"
+        ]
+
+        for variation in variations:
+            node = self.root
+            for char in variation.lower():
+                if char not in node.children:
+                    node.children[char] = TrieNode()
+                node = node.children[char]
+            node.is_end_of_word = True
+            node.original_word = word.lower()  # Store original word without boundaries
 
     def find_names_in_document(self, document: str) -> set[str]:
         """
-        Return set of names from prefix tree that appear in given document.
+        Return set of original phrases (without boundaries) that appear in given document
+        when surrounded by spaces or newlines.
         """
-        document = document.lower()
         found_names = set()
 
-        for i in range(len(document)):
-            if i > 0 and document[i-1].isalnum():
-                continue
+        # Add boundary characters to start and end for proper matching
+        document = "\n" + document + "\n"
+        document = document.lower()
 
+        for i in range(len(document)):
             node = self.root
             j = i
-
             matched_name = None
 
             while j < len(document) and document[j] in node.children:
                 node = node.children[document[j]]
                 j += 1
 
-                if node.is_end_of_word:
-                    if j == len(document) or not document[j].isalnum():
-                        matched_name = document[i:j]
+                if node.is_end_of_word and node.original_word:
+                    # Store the original word instead of the matched variation
+                    matched_name = node.original_word
 
             if matched_name:
                 found_names.add(matched_name)

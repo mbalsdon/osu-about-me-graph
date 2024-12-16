@@ -23,7 +23,6 @@ def rank_to_color(rank: int, num_users: int) -> tuple[int, int, int]:
     Colors are distributed evenly across the full gradient based on total number of users.
     Ranks within ranges of 100 will share the same color.
     """
-
     rank = max(1, min(num_users, rank))
     ranks_per_color = 100
     num_color_groups = (num_users + ranks_per_color - 1) // ranks_per_color
@@ -45,7 +44,16 @@ def rank_to_color(rank: int, num_users: int) -> tuple[int, int, int]:
         return (60, 180 - (color_index - 75) * 4.8, 180)
 
 
-def generate_graph(mentions_graph: classes.UndirectedGraph, current_to_mentions: dict, current_to_rank: dict, curve_edges: bool, image_filename: str) -> None:
+def generate_graph(
+        mentions_graph: classes.UndirectedGraph,
+        current_to_mentions: dict,
+        current_to_rank: dict,
+        curve_edges: bool,
+        image_filename: str
+    ) -> None:
+    """
+    Generates graph.
+    """
     print("-- Generating graph... This may take a while!")
 
     print("Building NetworkX graph from mentions data...")
@@ -107,8 +115,8 @@ def generate_graph(mentions_graph: classes.UndirectedGraph, current_to_mentions:
     print("Calculating node positions using spring layout...")
     pos = networkx.spring_layout(
         G,
-        k=2.5,  # Increased node spacing
-        iterations=150,  # More iterations for better convergence
+        k=2.5,  # Increase means more node spacing
+        iterations=150,  # More iterations means better convergence
         weight="weight",
         seed=727
     )
@@ -159,22 +167,22 @@ def generate_graph(mentions_graph: classes.UndirectedGraph, current_to_mentions:
     node_sizes = []
     node_labels = {}
     nodes = list(G.nodes())  # Get nodes in consistent order
-    
+
     # Calculate base sizes for scaling
-    max_label_size = 24  # Maximum font size
-    min_label_size = 6   # Minimum font size
-    base_node_size = 1000  # Minimum node size from previous code
+    max_label_size = 36
+    min_label_size = 6
+    base_node_size = 1000
     max_node_size = base_node_size + (max_mentions - min_mentions) * scale_factor
-    
+
     for node in nodes:
         rank = current_to_rank.get(node, num_users)
         rgb_color = rank_to_color(rank, num_users)
         node_colors.append([x/250 for x in rgb_color])
-        
+
         # Calculate node size
         node_size = base_node_size + (current_to_mentions.get(node, min_mentions) - min_mentions) * scale_factor
         node_sizes.append(node_size)
-        
+
         # Calculate label size proportional to node size
         size_ratio = (node_size - base_node_size) / (max_node_size - base_node_size) if max_node_size > base_node_size else 0
         label_size = min_label_size + size_ratio * (max_label_size - min_label_size)
@@ -214,37 +222,54 @@ def generate_graph(mentions_graph: classes.UndirectedGraph, current_to_mentions:
         )
 
     print("Adding color legend...")
-    range_size = (num_users + 10 - 1) // 10
+    ranks_per_color = 100  # Match the granularity used in rank_to_color
     legend_elements = []
-    for i in range(10):
-        start_rank = i * range_size + 1
-        end_rank = min((i + 1) * range_size, num_users)
-        rgb_color = rank_to_color(start_rank, num_users)
-        legend_elements.append(
-            matplotlib.patches.Patch(facecolor=[x/250 for x in rgb_color],
-                  edgecolor='white',
-                  label=f'Rank {start_rank}-{end_rank}',
-                  linewidth=3)  # Increased border width further
-        )
 
-    legend = ax.legend(handles=legend_elements,
-                      loc='center left',
-                      bbox_to_anchor=(1.06, 0.5),  # Moved further right
-                      frameon=True,
-                      facecolor='black',
-                      edgecolor='white',
-                      fontsize=36,  # Doubled from previous (6x original)
-                      title_fontsize=42,  # Slightly larger than regular font size
-                      markerscale=6,  # Doubled from previous
-                      borderpad=3,  # More padding inside legend
-                      labelspacing=2,  # More space between legend entries
-                      handletextpad=3,  # More space between patch and text
-                      handlelength=4)  # Even longer color patches
-    
+    # Calculate how many users are in each color group
+    users_per_group = (num_users + ranks_per_color - 1) // ranks_per_color
+
+    for i in range(ranks_per_color):
+        start_rank = i * users_per_group + 1
+        end_rank = min((i + 1) * users_per_group, num_users)
+
+        # Only add to legend if this group contains users
+        if start_rank <= num_users:
+            rgb_color = rank_to_color(start_rank, num_users)
+            legend_elements.append(
+                matplotlib.patches.Patch(
+                    facecolor=[x/250 for x in rgb_color],
+                    edgecolor='white',
+                    label=f'Rank {start_rank}-{end_rank}',
+                    linewidth=0.5
+                )
+            )
+
+    # Calculate optimal number of columns based on number of legend elements
+    num_elements = len(legend_elements)
+    num_columns = max(1, min(5, (num_elements + 19) // 20))  # Up to 5 columns, minimum 20 items per column
+
+    legend = ax.legend(
+        handles=legend_elements,
+        loc='upper right',
+        bbox_to_anchor=(1.15, 1.15),
+        frameon=True,
+        facecolor='black',
+        edgecolor='white',
+        fontsize=24,  # Reduced font size to accommodate more entries
+        title_fontsize=30,
+        markerscale=4,
+        borderpad=2.0,
+        labelspacing=1.0,
+        handletextpad=2.0,
+        handlelength=3.0,
+        ncol=num_columns,  # Use multiple columns
+        columnspacing=4.0
+    )
+
     legend.get_title().set_color('white')
     for text in legend.get_texts():
         text.set_color('white')
-    legend.get_frame().set_linewidth(3)  # Thicker legend border
+    legend.get_frame().set_linewidth(3.0)
 
     ax.axis("off")
     figure.tight_layout()
