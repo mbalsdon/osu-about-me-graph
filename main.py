@@ -10,17 +10,17 @@ import time
 
 async def main() -> None:
     start = time.time()
-    mentions_graph, current_to_mentions = await get_mentions(10000, False)
+    mentions_graph, current_to_mentions, current_to_rank = await get_mentions(1000, True) # TODO: False
     end = time.time()
     get_mentions_time_min = (end - start) / 60
 
     start = time.time()
     image_filename = "user_network.png"
-    generate_graph(mentions_graph, current_to_mentions, image_filename)
+    generate_graph(mentions_graph, current_to_mentions, current_to_rank, True, image_filename)
     end = time.time()
     generate_graph_time_min = (end - start) / 60
 
-    print("\nExecution completed!\n")
+    print("Execution completed!\n")
     print(f"You can find the image at {image_filename}.")
     print(f"User data parsing took {get_mentions_time_min} minutes.")
     print(f"Graph generation took {generate_graph_time_min} minutes.")
@@ -33,22 +33,19 @@ if __name__ == "__main__":
 
 # TODO
 
-### visualization
-##### edges go through nodes sometimes; can be misleading. some sort of color coding?
-##### rank gradient 100 colors; 10,000/100; (250,0,0), (250,10,0), ..., (250,250,0), (240,250,0), ..., (0,250,0), (0,250,10), ..., (0,250,250), (0,240,250), ..., (0,0,250)
-##### bigger node size range?
-##### less distance between nodes?
-
 ### flags
-##### numplayers
-####### would change the graphgen math
-##### gamemode
-##### conflict resolution style
-##### curved/straight edges
-##### dpi, figsize, spring-force (k), iterations, seed
-##### load dummy data
-##### filename
-##### edge num vertices
+##### including:
+####### numplayers
+######### would change the graphgen math
+####### gamemode
+####### conflict resolution style
+####### curved/straight edges
+####### dpi, figsize, spring-force (k), iterations, seed
+####### load dummy data
+####### filename
+####### edge num vertices
+####### rank-based clustering weight
+####### centrality weight
 
 ### readme
 ##### running:
