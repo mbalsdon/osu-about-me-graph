@@ -1,29 +1,102 @@
-from get_mentions import get_mentions
+from scrape_users import scrape_users
+from report_false_positives import report_false_positives
+from parse_users import parse_users
 from generate_graph import generate_graph
 
+import dotenv
 import asyncio
 
 import time
+import typing
+import gc
+
+#################################################################################################################################################
+#################################################################################################################################################
+
+async def async_timer(func: typing.Callable[..., typing.Any], *args: typing.Any, **kwargs: typing.Any) -> tuple[typing.Any, float]:
+    start = time.time()
+    result = await func(*args, **kwargs)
+    elapsed_min = (time.time() - start) / 60
+    return result, elapsed_min
+
+
+def sync_timer(func: typing.Callable[..., typing.Any], *args: typing.Any, **kwargs: typing.Any) -> tuple[typing.Any, float]:
+    start = time.time()
+    result = func(*args, **kwargs)
+    elapsed_min = (time.time() - start) / 60
+    return result, elapsed_min
 
 #################################################################################################################################################
 #################################################################################################################################################
 
 async def main() -> None:
-    start = time.time()
-    mentions_graph, current_to_mentions, current_to_rank = await get_mentions(1000, True) # TODO: False
-    end = time.time()
-    get_mentions_time_min = (end - start) / 60
+    dotenv.load_dotenv()
 
-    start = time.time()
+    num_users = 2500
+    use_last_run = True
+    save_filename = "users.pkl"
+    report_filename = "false_positives.txt"
+    ignore_usernames_filename = "ignore_usernames.csv"
+    mentions_top_percentile = 20
+    max_num_followers = 300
+    curve_edges = True
     image_filename = "user_network.png"
-    generate_graph(mentions_graph, current_to_mentions, current_to_rank, True, image_filename)
-    end = time.time()
-    generate_graph_time_min = (end - start) / 60
 
-    print("Execution completed!\n")
-    print(f"You can find the image at {image_filename}.")
-    print(f"User data parsing took {get_mentions_time_min} minutes.")
-    print(f"Graph generation took {generate_graph_time_min} minutes.")
+    # Get API data
+    users, scrape_min = await async_timer(
+        scrape_users,
+            num_users,
+            use_last_run,
+            save_filename
+    )
+
+    # Parse API data
+    (mentions_graph, username_to_mentions, username_to_rank), parse_min = sync_timer(
+        parse_users,
+            users,
+            ignore_usernames_filename
+    )
+
+    # Generate false-positives report
+    _, report_min = sync_timer(
+        report_false_positives,
+            users,
+            username_to_mentions,
+            mentions_top_percentile,
+            max_num_followers,
+            report_filename,
+            ignore_usernames_filename
+    )
+    TODO_remove = [][1]
+
+    # Clean up before explode PC
+    print("-- Cleaning up memory before graph generation...")
+    del users
+    gc.collect()
+
+    # Generate graph
+    _, graphgen_min = sync_timer(
+        generate_graph,
+            mentions_graph,
+            username_to_mentions,
+            username_to_rank,
+            curve_edges,
+            image_filename
+    )
+
+    # Print stuff
+    print("-- Execution completed!\n")
+
+    print(f"You can find the image at \"{image_filename}\"")
+    print(f"Ignored usernames can be found at \"{ignore_usernames_filename}\"")
+    print(f"You can find information about possible false-positives at \"{report_filename}\"")
+    print(f"Savefile located at \"{save_filename}\"\n")
+
+    print(f"API scraping took {round(scrape_min, 4):.4f} minutes.")
+    print(f"False-positive search took {round(report_min, 4):.4f} minutes.")
+    print(f"User data parsing took {round(parse_min, 4):.4f} minutes.")
+    print(f"Graph generation took {round(graphgen_min, 4):.4f} minutes.\n")
+
 
 if __name__ == "__main__":
     asyncio.run(main())
@@ -33,6 +106,19 @@ if __name__ == "__main__":
 
 # TODO
 
+### add parse_users loading bars
+### i think the legend is still squishing the graph
+##### try overlaying again?
+##### size scaling needs work:
+####### doesn't feel linear wrt diameter? see img
+####### increase range again if that doesnt fix it
+##### colors are not spanning the gradient (for 50 users atleast)
+
+### DirectedGraph
+##### edge from A to B if A mentions B
+##### improve report (who mentioned this + line)
+##### graphgen options? undirected, directed with arrows, undirected only if both mention eachother
+
 ### flags
 ##### including:
 ####### numplayers
@@ -40,12 +126,16 @@ if __name__ == "__main__":
 ####### gamemode
 ####### conflict resolution style
 ####### curved/straight edges
-####### dpi, figsize, spring-force (k), iterations, seed
+####### dpi, figsize (width and length), spring-force (k), iterations, seed
 ####### load dummy data
 ####### filename
 ####### edge num vertices
 ####### rank-based clustering weight
 ####### centrality weight
+####### commonword percentiles
+######### add this to report
+###### no graph (for reporting)
+##### can it be packaged into an executable or something
 
 ### readme
 ##### running:
@@ -57,9 +147,3 @@ if __name__ == "__main__":
 ####### python3 main.py
 ##### rename conflicts
 ##### common-word-usernames (e.g. "Hello")
-
-### commonwords
-##### https://www.kaggle.com/datasets/rtatman/english-word-frequency ???
-##### common osu words are pretty unique so ^^^ might not be helpful ("area", "wooting", "500", "horrible kids")
-##### best way is probably to just compare follower_count/num_mentions, and report any discrepancies
-##### read a manually written csv for usernames to ignore
