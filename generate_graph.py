@@ -1,198 +1,277 @@
+import PIL.ImageFile
 import classes
 
+import numpy
 import networkx
 import matplotlib.pyplot
+import matplotlib.figure
 import matplotlib.patches
-import numpy
-import PIL
+import matplotlib.axes
+import PIL.Image
 
+import typing
 import os
+import math
 
 #################################################################################################################################################
 #################################################################################################################################################
 
-def get_rank_range(rank: int, num_users: int) -> int:
+def create_base_graph(mentions_graph: classes.UndirectedGraph) -> networkx.Graph:
     """
-    Get the range index (0-9) for a given rank.
+    Create initial graph structure with basic edges.
     """
-    num_ranges = 10
-    range_size = (num_users + num_ranges - 1) // num_ranges
-    return min((rank - 1) // range_size, num_ranges - 1)
+    print("Creating base graph...")
+    G = networkx.Graph()
+    G.add_edges_from(
+        (user, mentioned_user)
+        for user, mentions in mentions_graph.adj.items()
+        for mentioned_user in mentions
+    )
+
+    return G
 
 
-def rank_to_color(rank: int, num_users: int) -> tuple[int, int, int]:
-    """
-    Map rank to RGB color according to gradient scheme.
-    Colors are distributed evenly across the full gradient based on total number of users.
-    Ranks within ranges of 100 will share the same color.
-    """
-
-    rank = max(1, min(num_users, rank))
-    ranks_per_color = 100
-    num_color_groups = (num_users + ranks_per_color - 1) // ranks_per_color
-    color_step = max(1, 100 // num_color_groups)
-    color_group = (rank - 1) // ranks_per_color
-    color_index = (color_group * color_step) % 100
-
-    # Muted Red to Muted Orange-Yellow (180,60,60) -> (180,150,60)
-    if color_index < 25:
-        return (180, 60 + color_index * 3.6, 60)
-    # Muted Orange-Yellow to Muted Green (180,150,60) -> (60,180,60)
-    elif color_index < 50:
-        return (180 - (color_index - 25) * 4.8, 150 + (color_index - 25) * 1.2, 60)
-    # Muted Green to Muted Teal (60,180,60) -> (60,180,180)
-    elif color_index < 75:
-        return (60, 180, 60 + (color_index - 50) * 4.8)
-    # Muted Teal to Muted Blue (60,180,180) -> (60,60,180)
-    else:
-        return (60, 180 - (color_index - 75) * 4.8, 180)
-
-#################################################################################################################################################
-#################################################################################################################################################
-
-def generate_graph(
-        mentions_graph: classes.UndirectedGraph,
+def add_virtual_edges(
+        G: networkx.Graph,
         current_to_mentions: dict,
         current_to_rank: dict,
-        curve_edges: bool,
-        image_filename: str
-    ) -> None:
+        rank_range_size: int
+    ) -> tuple[networkx.Graph, str]:
     """
-    Generates graph.
+    Adds weighted virtual edges between nodes in the same rank range, so that
+    nodes in the same rank range appear closer together.
+
+    Also adds a "central node" with weighted virtual edges to every other node,
+    so that nodes cluster around the center of the graph. Weights here are based
+    on node size.
+    * 
     """
-    print("--- Generating graph... This may take a while!")
+    print("Adding virtual weighted edges...")
+    counter = classes.ProgressCounter(0, len(G.nodes()) * 2)
 
-    print("Building NetworkX graph from mentions data...")
-    G = networkx.Graph()
-    G.add_edges_from((user, mentioned_user)
-                     for user, mentions in mentions_graph.adj.items()
-                     for mentioned_user in mentions)
-
-    num_users = len(current_to_rank)
     virtual_edges = []
+
+    # Group nodes by rank range
     nodes_by_range = {}
-
-    # Calculate normalized sizes for centrality weighting
-    mentions_values = list(current_to_mentions.values())
-    min_mentions = min(mentions_values)
-    max_mentions = max(mentions_values)
-    mention_range = max_mentions - min_mentions
-
-    def get_normalized_size(mentions):
-        return (mentions - min_mentions) / mention_range if mention_range > 0 else 1.0
-
-    print("Adding virtual edges for rank-based clustering and size-based centrality...")
-    # First, group nodes by rank range
     for node in G.nodes():
-        rank = current_to_rank.get(node, num_users)
-        rank_range = get_rank_range(rank, num_users)
+        rank = current_to_rank[node]
+        rank_range = (rank - 1) // rank_range_size
         if rank_range not in nodes_by_range:
             nodes_by_range[rank_range] = []
         nodes_by_range[rank_range].append(node)
 
-    # Add rank-based virtual edges
-    for rank_range, nodes in nodes_by_range.items():
+        counter.increment()
+        counter.print_progress_bar()
+
+    # Add rank range clustering edges
+    for nodes in nodes_by_range.values():
         for i, node in enumerate(nodes):
             for j in range(i + 1, min(i + 6, len(nodes))):
-                virtual_edges.append((node, nodes[j], 250.0))  # Rank-based clustering weight
+                virtual_edges.append((node, nodes[j], 250.0))
 
-    # Add size-based virtual edges to center
+    # Add center clustering edges
     center_node = "CENTER"
     G.add_node(center_node)
     for node in G.nodes():
-        if node != center_node:
-            node_size = get_normalized_size(current_to_mentions.get(node, min_mentions))
-            # Larger nodes get stronger attraction to center
-            centrality_weight = 500.0 * (1.0 - node_size)  # Inverse relationship
-            virtual_edges.append((node, center_node, centrality_weight))
+        if node == center_node:
+            continue
+
+        # Larger nodes get weaker attraction to center (inverse relationship)
+        normalized_node_size = current_to_mentions[node] / max(current_to_mentions.values())
+        centrality_weight = 500.0 * (1.0 - normalized_node_size)
+        virtual_edges.append((node, center_node, centrality_weight)) # (First node, second node, weight)
+
+        counter.increment()
+        counter.print_progress_bar()
 
     G.add_weighted_edges_from(virtual_edges)
 
-    print(f"Graph created with {len(G.nodes())} nodes and {len(G.edges())} edges")
+    print("\n", end="")
 
-    print("Setting up matplotlib figure...")
-    figure = matplotlib.pyplot.figure(figsize=(100, 100), facecolor="black")
-    ax = figure.add_subplot(111)
-    ax.set_facecolor("black")
+    return G, center_node
 
-    print("Calculating node positions using spring layout...")
-    pos = networkx.spring_layout(
-        G,
-        k=2.5,  # Increase means more node spacing
-        iterations=150,  # More iterations means better convergence
-        weight="weight",
-        seed=727
-    )
 
-    # Remove center node before drawing
-    G.remove_node(center_node)
-    del pos[center_node]
+def draw_curved_edge(start: numpy.ndarray, end: numpy.ndarray, edge_color: float, ax: matplotlib.axes.Axes):
+    """
+    Draw a curved edge between two points.
+    """
+    t = numpy.linspace(0, 1, 20) # Increase third value -> edges have smoother curvature
+    rad = 0.2
+    rotation = numpy.arctan2(end[1] - start[1], end[0] - start[0])
 
+    # Calculate curved path
+    x = t * (end[0] - start[0]) + start[0]
+    y = t * (end[1] - start[1]) + start[1]
+
+    # Apply curve transformation
+    y += rad * numpy.sin(t * numpy.pi) * numpy.cos(rotation)
+    x -= rad * numpy.sin(t * numpy.pi) * numpy.sin(rotation)
+
+    ax.plot(x, y, color=edge_color, alpha=0.5, linewidth=1.0)
+
+
+def draw_straight_edge(start: numpy.ndarray, end: numpy.ndarray, edge_color: list[float], ax: matplotlib.axes.Axes):
+    """
+    Draw a straight edge between two points.
+    """
+    x = numpy.array([start[0], end[0]])
+    y = numpy.array([start[1], end[1]])
+
+    ax.plot(x, y, color=edge_color, alpha=0.5, linewidth=1.0)
+
+
+def draw_single_edge(
+        edge: networkx.classes.reportviews.EdgeView,
+        pos: typing.Mapping,
+        current_to_rank: dict,
+        num_users: int,
+        rank_range_size: int,
+        curve_edges: bool,
+        ax: matplotlib.axes.Axes,
+    ) -> None:
+    """
+    Draw a single edge.
+    """
+    start = pos[edge[0]]
+    end = pos[edge[1]]
+
+    # Color edge with color of whichever node/user is higher ranked (in the connection)
+    rank1 = current_to_rank[edge[0]]
+    rank2 = current_to_rank[edge[1]]
+    edge_color = [x/250 for x in rank_to_color(min(rank1, rank2), num_users, rank_range_size)]
+
+    if curve_edges:
+        draw_curved_edge(start, end, edge_color, ax)
+    else:
+        draw_straight_edge(start, end, edge_color, ax)
+
+
+def draw_edges(
+        G: networkx.Graph,
+        pos: typing.Mapping,
+        current_to_rank: dict,
+        num_users: int,
+        rank_range_size: int,
+        curve_edges: bool,
+        ax: matplotlib.axes.Axes
+    ) -> None:
+    """
+    Draw edges onto graph.
+    """
     print("Drawing edges...")
-    batch_size = 1000
-    edge_list = [e for e in G.edges() if G[e[0]][e[1]].get("weight", 1.0) == 1.0]
-    total_batches = (len(edge_list) + batch_size - 1) // batch_size
 
+    # Only process real edges (weight=1.0), excluding virtual edges
+    edge_list = []
+    for edge in G.edges():
+        edge_attrs = G[edge[0]][edge[1]]
+        if "weight" not in edge_attrs:
+            edge_list.append(edge)
+
+    # Batch edges so that we don't max out on memory
+    counter = classes.ProgressCounter(0, len(edge_list))
+    batch_size = 1000
     for i in range(0, len(edge_list), batch_size):
         batch = edge_list[i:i + batch_size]
-        current_batch = i // batch_size + 1
-        print(f"Processing edge batch {current_batch}/{total_batches} ({len(batch)} edges)")
         for edge in batch:
-            start = pos[edge[0]]
-            end = pos[edge[1]]
+            draw_single_edge(edge, pos, current_to_rank, num_users, rank_range_size, curve_edges, ax)
+            counter.increment()
+            counter.print_progress_bar()
 
-            rank1 = current_to_rank.get(edge[0], num_users)
-            rank2 = current_to_rank.get(edge[1], num_users)
-            edge_color = [x/250 for x in rank_to_color(min(rank1, rank2), num_users)]
-
-            if curve_edges:
-                t = numpy.linspace(0, 1, 20)
-                rad = 0.2
-                rotation = numpy.arctan2(end[1] - start[1], end[0] - start[0])
-
-                x = t * (end[0] - start[0]) + start[0]
-                y = t * (end[1] - start[1]) + start[1]
-
-                y += rad * numpy.sin(t * numpy.pi) * numpy.cos(rotation)
-                x -= rad * numpy.sin(t * numpy.pi) * numpy.sin(rotation)
-            else:
-                x = numpy.array([start[0], end[0]])
-                y = numpy.array([start[1], end[1]])
-
-            ax.plot(x, y, color=edge_color, alpha=0.5, linewidth=1.0)
-
+        # Periodically clear plot cache to manage memory
         if i % (batch_size * 5) == 0:
-            figure.canvas.flush_events()
-            print("Cleared plot cache")
+            matplotlib.pyplot.gcf().canvas.flush_events()
 
-    print("Generating node colors based on ranks...")
+    print("\n", end="")
+
+
+def rank_to_color(rank: int, num_users: int, rank_range_size: int) -> tuple[int, int, int]:
+    """
+    Map rank to RGB color according to gradient scheme.
+    Colors are distributed evenly across the full gradient based on total number of users.
+    Ranks within specified range_size will share the same color.
+    """
+    num_color_groups = (num_users + rank_range_size - 1) // rank_range_size
+    color_step = max(1, 100 // num_color_groups)
+    color_group = (rank - 1) // rank_range_size
+    color_index = (color_group * color_step) % 100
+
+    # (180,60,60) -> (180,150,60)
+    if color_index < 25:
+        return (180, 60 + color_index * 3.6, 60)
+    # (180,150,60) -> (60,180,60)
+    elif color_index < 50:
+        return (180 - (color_index - 25) * 4.8, 150 + (color_index - 25) * 1.2, 60)
+    # (60,180,60) -> (60,180,180)
+    elif color_index < 75:
+        return (60, 180, 60 + (color_index - 50) * 4.8)
+    # (60,180,180) -> (60,60,180)
+    else:
+        return (60, 180 - (color_index - 75) * 4.8, 180)
+
+
+def calculate_node_properties(
+        G: networkx.Graph,
+        current_to_mentions: dict,
+        current_to_rank: dict,
+        num_users: int,
+        rank_range_size: int
+    ) -> tuple[list[float], list[float], dict]:
+    """
+    Calculate colors, sizes, and label properties for nodes.
+    """
+    print("Calculating node properties...")
+
+    # Initialize containers
     node_colors = []
     node_sizes = []
     node_labels = {}
-    nodes = list(G.nodes())  # Get nodes in consistent order
+    nodes = list(G.nodes())
 
-    # Calculate base sizes for scaling
-    print("Calculating node sizes based on mention counts...")
-    scale_factor = 50000 / mention_range if mention_range > 0 else 50000
-    max_label_size = 36
-    min_label_size = 6
-    base_node_size = 1000
-    max_node_size = base_node_size + (max_mentions - min_mentions) * scale_factor
+    # Calculate diameter scale factor to map from [0, max_mentions] to [min_diameter, max_diameter]
+    min_diameter = 30
+    max_diameter = 300
+    max_mentions = max(current_to_mentions.values())
+    diameter_scale_factor = (max_diameter - min_diameter) / max_mentions if max_mentions > 0 else 0
+
+    counter = classes.ProgressCounter(0, len(nodes))
 
     for node in nodes:
-        rank = current_to_rank.get(node, num_users)
-        rgb_color = rank_to_color(rank, num_users)
+        # Calculate color based on rank
+        rank = current_to_rank[node]
+        rgb_color = rank_to_color(rank, num_users, rank_range_size)
         node_colors.append([x/250 for x in rgb_color])
 
-        # Calculate node size
-        node_size = base_node_size + (current_to_mentions.get(node, min_mentions) - min_mentions) * scale_factor
+        # Calculate diameter based on mentions (linear scaling)
+        mention_count = current_to_mentions[node]
+        diameter = min_diameter + (mention_count * diameter_scale_factor)
+
+        # Convert diameter to area for NetworkX
+        node_size = math.pi * ((diameter / 2) ** 2)
         node_sizes.append(node_size)
 
-        # Calculate label size proportional to node size
-        size_ratio = (node_size - base_node_size) / (max_node_size - base_node_size) if max_node_size > base_node_size else 0
-        label_size = min_label_size + size_ratio * (max_label_size - min_label_size)
+        # Calculate label size
+        diameter_ratio = (diameter - min_diameter) / (max_diameter - min_diameter)
+        label_size = 6 + (diameter_ratio * 30)
         node_labels[node] = label_size
 
+        counter.increment()
+        counter.print_progress_bar()
+
+    print("\n", end="")
+    return node_colors, node_sizes, node_labels
+
+
+def draw_nodes_and_labels(
+        G: networkx.Graph,
+        pos: typing.Mapping,
+        node_colors: list[float],
+        node_sizes: list[float],
+        node_labels: dict,
+        ax: matplotlib.axes.Axes
+    ):
+    """
+    Draw nodes and their labels with appropriate sizes and colors.
+    """
     print("Drawing nodes...")
     networkx.draw_networkx_nodes(
         G,
@@ -206,19 +285,18 @@ def generate_graph(
     )
 
     print("Adding node labels...")
-    # Group nodes by font size for batch drawing
+    # Group labels by font size for efficient drawing
     labels_by_size = {}
     for node, size in node_labels.items():
-        size = max(min_label_size, round(size))  # Round to nearest integer and ensure minimum size
+        size = max(6, round(size))  # Ensure minimum size of 6pt
         if size not in labels_by_size:
             labels_by_size[size] = {}
         labels_by_size[size][node] = node
 
-    # Draw labels in batches by size
+    # Draw labels in batches by font size
     for font_size, node_dict in labels_by_size.items():
         networkx.draw_networkx_labels(
-            G,
-            pos,
+            G, pos,
             {node: label for node, label in node_dict.items()},
             font_size=font_size,
             font_weight="bold",
@@ -226,70 +304,137 @@ def generate_graph(
             ax=ax
         )
 
-    ax.axis("off")
 
-    print("Saving main graph...")
-    matplotlib.pyplot.savefig(image_filename, dpi=100, facecolor="black", edgecolor="none")
+def create_legend(figsize: tuple[int, int], num_users: int, rank_range_size: int) -> matplotlib.figure.Figure:
+    """
+    Create legend figure.
+    Each entry is a color patch and the rank range associated with that color.
+    """
+    print(f"Creating legend for {num_users} users with size {figsize}...")
 
-    # Create legend figure
-    print("Creating legend figure...")
-    legend_fig = matplotlib.pyplot.figure(figsize=(100, 100), facecolor="none")
-
-    # Calculate number of full rank groups of 100
-    ranks_per_color = 100
-    num_groups = (num_users + ranks_per_color - 1) // ranks_per_color
-
+    # Build legend entries
     legend_elements = []
+    num_groups = (num_users + rank_range_size - 1) // rank_range_size
     for i in range(num_groups):
-        start_rank = i * ranks_per_color + 1
-        end_rank = min((i + 1) * ranks_per_color, num_users)
+        start_rank = i * rank_range_size + 1
+        end_rank = min((i + 1) * rank_range_size, num_users)
+        color = rank_to_color(start_rank, num_users, rank_range_size)
 
-        rgb_color = rank_to_color(start_rank, num_users)
         legend_elements.append(
             matplotlib.patches.Patch(
-                facecolor=[x/250 for x in rgb_color],
+                facecolor=[x/255 for x in color],
                 edgecolor="white",
-                label=f"Rank {start_rank}-{end_rank}",
+                label=f"Rank {start_rank} - {end_rank}",
                 linewidth=0.5
             )
         )
 
-    num_elements = len(legend_elements)
-    num_columns = max(1, min(5, (num_elements + 19) // 20))
-
-    legend = legend_fig.legend(
+    # Create legend
+    legend_figure = matplotlib.pyplot.figure(figsize=figsize, facecolor="none")
+    legend = legend_figure.legend(
         handles=legend_elements,
         loc="upper right",
         bbox_to_anchor=(1, 1),
         frameon=True,
         facecolor="black",
         edgecolor="white",
-        fontsize=60,
-        title_fontsize=72,
-        markerscale=12,
-        ncol=num_columns,
+        fontsize=45,
+        markerscale=9,
+        ncol=max(1, (num_groups + 10 - 1) // 10) # ~10 rows per column
     )
-
-    legend.get_title().set_color("white")
     for text in legend.get_texts():
         text.set_color("white")
     legend.get_frame().set_linewidth(3.0)
 
-    # Save temporary legend
-    print("Saving temporary legend...")
-    temp_legend_filename = "temp_legend.png"
-    legend_fig.savefig(temp_legend_filename, dpi=100, facecolor="none", edgecolor="none")
+    return legend_figure
+
+
+def paste_onto(background_filename: str, foreground_filename: str) -> PIL.ImageFile.ImageFile:
+    """
+    Paste foreground image onto background image.
+    """
+    print(f"Pasting \"{foreground_filename}\" onto \"{background_filename}\"...")
+    bg = PIL.Image.open(background_filename)
+    fg = PIL.Image.open(foreground_filename)
+
+    bg.paste(fg, (0, 0), fg)
+    return bg
+
+
+#################################################################################################################################################
+#################################################################################################################################################
+
+def generate_graph(
+        mentions_graph: classes.UndirectedGraph,
+        current_to_mentions: dict,
+        current_to_rank: dict,
+        curve_edges: bool,
+        rank_range_size: int,
+        image_filename: str
+    ) -> None:
+    """
+    Generate and save graph image.
+    """
+    print("--- Generating graph...")
+
+    # Create and enhance graph structure
+    G = create_base_graph(mentions_graph)
+    G, center_node = add_virtual_edges(G, current_to_mentions, current_to_rank, rank_range_size)
+
+    # Calculate layout
+    print("Calculating node positions...")
+    pos = networkx.spring_layout(
+        G,
+        k=2.5, # Increase means more node spacing
+        iterations=150, # Increase means better convergence
+        weight="weight",
+        seed=727
+    )
+
+    # Remove center node now that the graph is generated
+    G.remove_node(center_node)
+    del pos[center_node]
+
+    # Set up visualization
+    print("Setting up matplotlib figure...")
+    figure = matplotlib.pyplot.figure(figsize=(100, 100), facecolor="black")
+    ax = figure.add_subplot(111)
+    ax.set_facecolor("black")
+
+    # Draw graph elements
+    num_users = len(current_to_rank)
+    draw_edges(G, pos, current_to_rank, num_users, rank_range_size, curve_edges, ax)
+    node_colors, node_sizes, node_labels = calculate_node_properties(
+        G,
+        current_to_mentions,
+        current_to_rank,
+        num_users,
+        rank_range_size
+    )
+    draw_nodes_and_labels(G, pos, node_colors, node_sizes, node_labels, ax)
+
+    # Finalize and save
+    ax.axis("off")
+    print(f"Saving graph to {image_filename}...")
+    matplotlib.pyplot.savefig(
+        image_filename,
+        dpi=100,
+        facecolor="black",
+        edgecolor="none"
+    )
+    print("Graph generation complete!")
+
+    # Create and save legend to temporary file same resolution as graph
+    legend_figure = create_legend((100, 100), num_users, rank_range_size)
+    legend_filename = "legend_temp.png"
+    legend_figure.savefig(legend_filename, dpi=100, facecolor="none", edgecolor="none")
 
     # Combine images and save final result
-    print("Combining images and saving final result...")
-    main_img = PIL.Image.open(image_filename)
-    legend_img = PIL.Image.open(temp_legend_filename)
-    main_img.paste(legend_img, (0, 0), legend_img)
-
+    main_img = paste_onto(image_filename, legend_filename)
     main_img.save(image_filename, format="PNG")
 
-    # Clean up temporary files
-    os.remove(temp_legend_filename)
+    # Clean up
+    os.remove(legend_filename)
     matplotlib.pyplot.close("all")
 
 #################################################################################################################################################
