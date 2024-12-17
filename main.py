@@ -38,7 +38,8 @@ async def main() -> None:
     report_filename = "false_positives.txt"
     ignore_usernames_filename = "ignore_usernames.csv"
     mentions_top_percentile = 20
-    max_num_followers = 300
+    max_num_followers = 750
+    rank_range_size = 50
     curve_edges = True
     image_filename = "user_network.png"
 
@@ -79,6 +80,7 @@ async def main() -> None:
             username_to_mentions,
             username_to_rank,
             curve_edges,
+            rank_range_size,
             image_filename
     )
 
@@ -104,37 +106,34 @@ if __name__ == "__main__":
 
 # TODO
 
-### clean up graphgen
-##### helper functions
-##### logic cleanup
-##### comments
-### size scaling needs work
-##### it scales w/ area but want diameter
-
-
 ### DirectedGraph
 ##### edge from A to B if A mentions B
 ##### improve report (who mentioned this + line)
-##### graphgen options? undirected, directed with arrows, undirected only if both mention eachother
+##### graphgen options? undirected, directed (with arrows..?), undirected only if both mention eachother
+##### color based on who mentioned who?
 
 ### flags
-##### including:
+##### populate ignore_usernames.csv
+##### pick out good defaults
+##### add:
 ####### numplayers
-######### would change the graphgen math
 ####### gamemode
-####### conflict resolution style
 ####### curved/straight edges
 ####### dpi, figsize (width and length), spring-force (k), iterations, seed
-####### load dummy data
-####### filename
-####### edge num vertices
+####### use last run
+####### output image filename
+####### num. vertices in edges
 ####### rank-based clustering weight
 ####### centrality weight
+####### bigger nodes closer/farther from centre (bool)
 ####### legend (on/off)
 ####### commonword percentiles
 ######### add this to report
-###### no graph (for reporting)
-##### can it be packaged into an executable or something
+####### no graph (for reporting)
+####### max/min node diameter
+####### rank range size
+
+### look into 3d
 
 ### readme
 ##### running:
@@ -146,3 +145,9 @@ if __name__ == "__main__":
 ####### python3 main.py
 ##### rename conflicts
 ##### common-word-usernames (e.g. "Hello")
+
+# FUTURE
+
+### 2d interactive?
+
+### executable?
