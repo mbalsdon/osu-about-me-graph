@@ -32,7 +32,7 @@ def sync_timer(func: typing.Callable[..., typing.Any], *args: typing.Any, **kwar
 async def main() -> None:
     dotenv.load_dotenv()
 
-    num_users = 2500
+    num_users = 1000
     use_last_run = True
     save_filename = "users.pkl"
     report_filename = "false_positives.txt"
@@ -67,10 +67,8 @@ async def main() -> None:
             report_filename,
             ignore_usernames_filename
     )
-    TODO_remove = [][1]
 
     # Clean up before explode PC
-    print("-- Cleaning up memory before graph generation...")
     del users
     gc.collect()
 
@@ -85,11 +83,11 @@ async def main() -> None:
     )
 
     # Print stuff
-    print("-- Execution completed!\n")
+    print("--- Execution completed!\n")
 
     print(f"You can find the image at \"{image_filename}\"")
     print(f"Ignored usernames can be found at \"{ignore_usernames_filename}\"")
-    print(f"You can find information about possible false-positives at \"{report_filename}\"")
+    print(f"Possible false-positives can be found at \"{report_filename}\"")
     print(f"Savefile located at \"{save_filename}\"\n")
 
     print(f"API scraping took {round(scrape_min, 4):.4f} minutes.")
@@ -106,13 +104,13 @@ if __name__ == "__main__":
 
 # TODO
 
-### add parse_users loading bars
-### i think the legend is still squishing the graph
-##### try overlaying again?
-##### size scaling needs work:
-####### doesn't feel linear wrt diameter? see img
-####### increase range again if that doesnt fix it
-##### colors are not spanning the gradient (for 50 users atleast)
+### clean up graphgen
+##### helper functions
+##### logic cleanup
+##### comments
+### size scaling needs work
+##### it scales w/ area but want diameter
+
 
 ### DirectedGraph
 ##### edge from A to B if A mentions B
@@ -132,6 +130,7 @@ if __name__ == "__main__":
 ####### edge num vertices
 ####### rank-based clustering weight
 ####### centrality weight
+####### legend (on/off)
 ####### commonword percentiles
 ######### add this to report
 ###### no graph (for reporting)
@@ -143,7 +142,7 @@ if __name__ == "__main__":
 ####### printf "OSU_API_CLIENT_ID=[your client ID here]\nOSU_API_CLIENT_SECRET=[your client secret here]" > .env
 ####### python3 -m venv venv
 ####### source venv/bin/activate
-####### pip install ossapi networkx matplotlib asyncio aiohttp python-dotenv scipy numpy
+####### pip install ossapi networkx matplotlib asyncio aiohttp python-dotenv scipy numpy pillow
 ####### python3 main.py
 ##### rename conflicts
 ##### common-word-usernames (e.g. "Hello")
