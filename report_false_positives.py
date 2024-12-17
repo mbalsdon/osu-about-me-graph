@@ -13,7 +13,7 @@ def report_false_positives(
     Generates a file containing users in the top X% of mentions with less than Y followers\n
     [If I ever have to read this code again](https://c.tenor.com/MT_m5VBtBWwAAAAd/tenor.gif)
     """
-    print(f"-- Generating false-positives report for {len(users)} users...")
+    print(f"--- Generating false-positives report for {len(users)} users...")
 
     username_to_followers = {}
     usernames = [u for u in list(username_to_mentions.keys())]
@@ -76,6 +76,8 @@ def report_false_positives(
     # Print to file
     with open(report_filename, "w") as f:
         f.writelines(line + "\n" for line in lines)
+
+    print(f"Found {len(possible_common_word_usernames)} possible false-positives!")
 
 #################################################################################################################################################
 #################################################################################################################################################

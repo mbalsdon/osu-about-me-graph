@@ -1,7 +1,6 @@
 import classes
 
 import os
-import re
 
 #################################################################################################################################################
 #################################################################################################################################################
@@ -15,23 +14,6 @@ def get_ignored_usernames(ignore_usernames_filename: str) -> list[str]:
         ignored_usernames = [line.strip().lower() for line in f]
         return ignored_usernames
 
-
-def strip_bbcode(text: str):
-    """
-    Remove BBCode tag pairs while preserving the content between them.
-    """
-    # Pattern matches:
-    # [tag]content[/tag]
-    # [tag=value]content[/tag]
-    # [tag=]content[/tag]
-    pattern = r'\[([^]\s=]+)(?:=(?:[^\]]*)?)?\](.*?)\[/\1\]'
-
-    # Keep processing until no more tag pairs are found
-    while re.search(pattern, text, re.DOTALL | re.MULTILINE):
-        text = re.sub(pattern, r'\2', text, flags=re.DOTALL | re.MULTILINE)
-
-    return text
-
 #################################################################################################################################################
 #################################################################################################################################################
 
@@ -43,7 +25,7 @@ def parse_users(users: list[dict], ignore_usernames_filename: str) -> tuple[clas
         * Map from (current) username to global rank.
     Usernames found in specified csv file will not contribute to mention data for the associated user.
     """
-    print(f"-- Parsing data for {len(users)} users...")
+    print(f"--- Parsing data for {len(users)} users...")
     alias_to_current = {}
     current_to_mentions = {}
     current_to_rank = {}
@@ -52,6 +34,9 @@ def parse_users(users: list[dict], ignore_usernames_filename: str) -> tuple[clas
 
     # Get ignored usernames if they exist
     ignored_usernames = get_ignored_usernames(ignore_usernames_filename)
+    ignored_username_hits = 0
+
+    print("Building storage structures...")
 
     # Sort by follower count (descending), then rank (ascending) in the case of ties
     users = sorted(users, key=lambda user: (-user["follower_count"], user["global_rank"]), reverse=False)
@@ -72,19 +57,24 @@ def parse_users(users: list[dict], ignore_usernames_filename: str) -> tuple[clas
         current_to_rank[current_username] = user["global_rank"]
 
         if current_username in ignored_usernames:
-            print(f"Ignored username {current_username}!")
+            ignored_username_hits += 1
         else:
             username_trie.insert(current_username)
 
         for previous_username in previous_usernames:
             if previous_username in ignored_usernames:
-                print(f"Ignored username {previous_username}!")
+                ignored_username_hits += 1
             else:
                 username_trie.insert(previous_username)
 
+    print(f"Found and ignored {ignored_username_hits} usernames!")
+
+    print("Parsing 'About me' pages...")
+    counter = classes.ProgressCounter(0, len(users))
+
     for user in users:
         current_username = user["current_username"]
-        about_me = strip_bbcode(user["about_me"])
+        about_me = user["about_me"]
 
         referenced_aliases = username_trie.find_names_in_document(about_me)
         for referenced_alias in referenced_aliases:
@@ -93,6 +83,11 @@ def parse_users(users: list[dict], ignore_usernames_filename: str) -> tuple[clas
             if current_username != referenced_username:
                 current_to_mentions[referenced_username] += 1
                 mentions_graph.add_edge(current_username, referenced_username)
+
+        counter.increment()
+        counter.print_progress_bar()
+
+    print("\n", end="")
 
     return mentions_graph, current_to_mentions, current_to_rank
 

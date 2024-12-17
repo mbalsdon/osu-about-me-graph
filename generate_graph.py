@@ -4,6 +4,9 @@ import networkx
 import matplotlib.pyplot
 import matplotlib.patches
 import numpy
+import PIL
+
+import os
 
 #################################################################################################################################################
 #################################################################################################################################################
@@ -23,6 +26,7 @@ def rank_to_color(rank: int, num_users: int) -> tuple[int, int, int]:
     Colors are distributed evenly across the full gradient based on total number of users.
     Ranks within ranges of 100 will share the same color.
     """
+
     rank = max(1, min(num_users, rank))
     ranks_per_color = 100
     num_color_groups = (num_users + ranks_per_color - 1) // ranks_per_color
@@ -43,6 +47,8 @@ def rank_to_color(rank: int, num_users: int) -> tuple[int, int, int]:
     else:
         return (60, 180 - (color_index - 75) * 4.8, 180)
 
+#################################################################################################################################################
+#################################################################################################################################################
 
 def generate_graph(
         mentions_graph: classes.UndirectedGraph,
@@ -54,7 +60,7 @@ def generate_graph(
     """
     Generates graph.
     """
-    print("-- Generating graph... This may take a while!")
+    print("--- Generating graph... This may take a while!")
 
     print("Building NetworkX graph from mentions data...")
     G = networkx.Graph()
@@ -103,9 +109,6 @@ def generate_graph(
     G.add_weighted_edges_from(virtual_edges)
 
     print(f"Graph created with {len(G.nodes())} nodes and {len(G.edges())} edges")
-
-    print("Calculating node sizes based on mention counts...")
-    scale_factor = 50000 / mention_range if mention_range > 0 else 50000
 
     print("Setting up matplotlib figure...")
     figure = matplotlib.pyplot.figure(figsize=(100, 100), facecolor="black")
@@ -169,6 +172,8 @@ def generate_graph(
     nodes = list(G.nodes())  # Get nodes in consistent order
 
     # Calculate base sizes for scaling
+    print("Calculating node sizes based on mention counts...")
+    scale_factor = 50000 / mention_range if mention_range > 0 else 50000
     max_label_size = 36
     min_label_size = 6
     base_node_size = 1000
@@ -221,62 +226,71 @@ def generate_graph(
             ax=ax
         )
 
-    print("Adding color legend...")
-    ranks_per_color = 100  # Match the granularity used in rank_to_color
+    ax.axis("off")
+
+    print("Saving main graph...")
+    matplotlib.pyplot.savefig(image_filename, dpi=100, facecolor="black", edgecolor="none")
+
+    # Create legend figure
+    print("Creating legend figure...")
+    legend_fig = matplotlib.pyplot.figure(figsize=(100, 100), facecolor="none")
+
+    # Calculate number of full rank groups of 100
+    ranks_per_color = 100
+    num_groups = (num_users + ranks_per_color - 1) // ranks_per_color
+
     legend_elements = []
+    for i in range(num_groups):
+        start_rank = i * ranks_per_color + 1
+        end_rank = min((i + 1) * ranks_per_color, num_users)
 
-    # Calculate how many users are in each color group
-    users_per_group = (num_users + ranks_per_color - 1) // ranks_per_color
-
-    for i in range(ranks_per_color):
-        start_rank = i * users_per_group + 1
-        end_rank = min((i + 1) * users_per_group, num_users)
-
-        # Only add to legend if this group contains users
-        if start_rank <= num_users:
-            rgb_color = rank_to_color(start_rank, num_users)
-            legend_elements.append(
-                matplotlib.patches.Patch(
-                    facecolor=[x/250 for x in rgb_color],
-                    edgecolor='white',
-                    label=f'Rank {start_rank}-{end_rank}',
-                    linewidth=0.5
-                )
+        rgb_color = rank_to_color(start_rank, num_users)
+        legend_elements.append(
+            matplotlib.patches.Patch(
+                facecolor=[x/250 for x in rgb_color],
+                edgecolor="white",
+                label=f"Rank {start_rank}-{end_rank}",
+                linewidth=0.5
             )
+        )
 
-    # Calculate optimal number of columns based on number of legend elements
     num_elements = len(legend_elements)
-    num_columns = max(1, min(5, (num_elements + 19) // 20))  # Up to 5 columns, minimum 20 items per column
+    num_columns = max(1, min(5, (num_elements + 19) // 20))
 
-    legend = ax.legend(
+    legend = legend_fig.legend(
         handles=legend_elements,
-        loc='upper right',
-        bbox_to_anchor=(1.15, 1.15),
+        loc="upper right",
+        bbox_to_anchor=(1, 1),
         frameon=True,
-        facecolor='black',
-        edgecolor='white',
-        fontsize=24,  # Reduced font size to accommodate more entries
-        title_fontsize=30,
-        markerscale=4,
-        borderpad=2.0,
-        labelspacing=1.0,
-        handletextpad=2.0,
-        handlelength=3.0,
-        ncol=num_columns,  # Use multiple columns
-        columnspacing=4.0
+        facecolor="black",
+        edgecolor="white",
+        fontsize=60,
+        title_fontsize=72,
+        markerscale=12,
+        ncol=num_columns,
     )
 
-    legend.get_title().set_color('white')
+    legend.get_title().set_color("white")
     for text in legend.get_texts():
-        text.set_color('white')
+        text.set_color("white")
     legend.get_frame().set_linewidth(3.0)
 
-    ax.axis("off")
-    figure.tight_layout()
+    # Save temporary legend
+    print("Saving temporary legend...")
+    temp_legend_filename = "temp_legend.png"
+    legend_fig.savefig(temp_legend_filename, dpi=100, facecolor="none", edgecolor="none")
 
-    print(f"Saving graph to {image_filename}...")
-    matplotlib.pyplot.savefig(image_filename, dpi=100, bbox_inches="tight", facecolor="black", edgecolor="none", bbox_extra_artists=[legend])
-    matplotlib.pyplot.close()
+    # Combine images and save final result
+    print("Combining images and saving final result...")
+    main_img = PIL.Image.open(image_filename)
+    legend_img = PIL.Image.open(temp_legend_filename)
+    main_img.paste(legend_img, (0, 0), legend_img)
+
+    main_img.save(image_filename, format="PNG")
+
+    # Clean up temporary files
+    os.remove(temp_legend_filename)
+    matplotlib.pyplot.close("all")
 
 #################################################################################################################################################
 #################################################################################################################################################
