@@ -17,7 +17,7 @@ def get_ignored_usernames(ignore_usernames_filename: str) -> list[str]:
 #################################################################################################################################################
 #################################################################################################################################################
 
-def parse_users(users: list[dict], ignore_usernames_filename: str) -> tuple[classes.UndirectedGraph, dict, dict]:
+def parse_users(users: list[dict], ignore_usernames_filename: str) -> tuple[classes.DirectedGraph, dict]:
     """
     Parse user about me pages. Returns a tuple containing the following:
         * Undirected graph, where an edge exists between player A and B iff player A mentions player B.
@@ -25,11 +25,10 @@ def parse_users(users: list[dict], ignore_usernames_filename: str) -> tuple[clas
         * Map from (current) username to global rank.
     Usernames found in specified csv file will not contribute to mention data for the associated user.
     """
-    print(f"--- Parsing data for {len(users)} users...")
+    print(f"\n--- Parsing data for {len(users)} users...")
     alias_to_current = {}
-    current_to_mentions = {}
     current_to_rank = {}
-    mentions_graph = classes.UndirectedGraph()
+    mentions_graph = classes.DirectedGraph()
     username_trie = classes.Trie()
 
     # Get ignored usernames if they exist
@@ -53,7 +52,6 @@ def parse_users(users: list[dict], ignore_usernames_filename: str) -> tuple[clas
             if previous_username not in alias_to_current:
                 alias_to_current[previous_username] = current_username
 
-        current_to_mentions[current_username] = 0
         current_to_rank[current_username] = user["global_rank"]
 
         if current_username in ignored_usernames:
@@ -76,12 +74,13 @@ def parse_users(users: list[dict], ignore_usernames_filename: str) -> tuple[clas
         current_username = user["current_username"]
         about_me = user["about_me"]
 
+        mentions_graph.add_vertex(current_username)
+
         referenced_aliases = username_trie.find_names_in_document(about_me)
         for referenced_alias in referenced_aliases:
             referenced_username = alias_to_current[referenced_alias.lower()]
 
             if current_username != referenced_username:
-                current_to_mentions[referenced_username] += 1
                 mentions_graph.add_edge(current_username, referenced_username)
 
         counter.increment()
@@ -89,7 +88,7 @@ def parse_users(users: list[dict], ignore_usernames_filename: str) -> tuple[clas
 
     print("\n", end="")
 
-    return mentions_graph, current_to_mentions, current_to_rank
+    return mentions_graph, current_to_rank
 
 #################################################################################################################################################
 #################################################################################################################################################

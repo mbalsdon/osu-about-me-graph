@@ -14,8 +14,9 @@ import pickle
 #################################################################################################################################################
 
 async def fetch_single_rankings_ids(osu: ossapi.OssapiAsync, page: int, counter: classes.ProgressCounter) -> list[int]:
-    retries = 0
+    retries = 1
     wait_sec = 1 + random.random()
+    await asyncio.sleep(wait_sec)
     while True:
         try:
             rankings = await osu.ranking(ossapi.GameMode.OSU, ossapi.RankingType.PERFORMANCE, cursor=ossapi.Cursor(page=page))
@@ -36,7 +37,6 @@ async def fetch_single_rankings_ids(osu: ossapi.OssapiAsync, page: int, counter:
                     wait_sec = 64 + random.random()
 
                 retries += 1
-                await asyncio.sleep(wait_sec)
                 continue
 
             # Skip for other errors - may happen if for example someone gets restricted between the time
@@ -45,7 +45,8 @@ async def fetch_single_rankings_ids(osu: ossapi.OssapiAsync, page: int, counter:
 
         # https://github.com/tybug/ossapi/issues/60#issuecomment-2544072157
         except (aiohttp.ContentTypeError, aiohttp.ClientError, aiohttp.ClientOSError, asyncio.TimeoutError) as e:
-            await asyncio.sleep(wait_sec)
+            print(f"Something broke! Retrying...")
+            retries += 1
             continue
 
 
@@ -62,6 +63,7 @@ async def fetch_rankings_ids(osu: ossapi.OssapiAsync, num_pages: int) -> list[in
 async def fetch_single_user(osu: ossapi.OssapiAsync, user_id: int, counter: classes.ProgressCounter) -> list[typing.Union[dict, None]]:
     retries = 0
     wait_sec = 1 + random.random()
+    await asyncio.sleep(wait_sec)
     while True:
         try:
             user = await osu.user(user_id, mode=ossapi.GameMode.OSU)
@@ -84,11 +86,11 @@ async def fetch_single_user(osu: ossapi.OssapiAsync, user_id: int, counter: clas
             # Exponential backoff if we get 429'ed. (https://en.wikipedia.org/wiki/Exponential_backoff)
             if "too many attempts" in error_message:
                 wait_sec = (2 ** retries) + random.random()
+                print(f"\nRatelimited - waiting {wait_sec} seconds...")
                 if (wait_sec >= 64):
                     wait_sec = 64 + random.random()
 
                 retries += 1
-                await asyncio.sleep(wait_sec)
                 continue
 
             # Skip for other errors - may happen if for example someone gets restricted between the time
@@ -97,7 +99,8 @@ async def fetch_single_user(osu: ossapi.OssapiAsync, user_id: int, counter: clas
 
         # https://github.com/tybug/ossapi/issues/60#issuecomment-2544072157
         except (aiohttp.ContentTypeError, aiohttp.ClientError, aiohttp.ClientOSError, asyncio.TimeoutError) as e:
-            await asyncio.sleep(wait_sec)
+            print(f"Something broke! Retrying...")
+            retries += 1
             continue
 
 
@@ -121,6 +124,7 @@ def load_users(filename: str) -> list[dict]:
     with open(filename, "rb") as f:
         data = pickle.load(f)
         users = data["users"]
+        print(f"Successfully loaded data for {len(users)} users!")
         return users
 
 #################################################################################################################################################
@@ -139,7 +143,7 @@ async def scrape_users(min_num_users: int, use_last_run: bool, save_filename: st
         * "global_rank": `int`
     """
     if use_last_run:
-        print(f"--- Fetching save data from {save_filename}...")
+        print(f"\n--- Fetching save data from {save_filename}...")
         if not os.path.exists(save_filename):
             raise FileNotFoundError(f"Savefile {save_filename} could not be found!")
         return load_users(save_filename)
@@ -148,7 +152,7 @@ async def scrape_users(min_num_users: int, use_last_run: bool, save_filename: st
         raise ValueError(f"Number of users must be between 1-10000!")
 
     num_pages = math.ceil(min_num_users / 50)
-    print(f"--- Scraping osu!API data for {num_pages * 50} users... This may take a while!")
+    print(f"\n--- Scraping osu!API data for {num_pages * 50} users...")
 
     osu = ossapi.OssapiAsync(
         os.getenv("OSU_API_CLIENT_ID"),
