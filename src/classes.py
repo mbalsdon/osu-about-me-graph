@@ -3,16 +3,37 @@ import collections
 #################################################################################################################################################
 #################################################################################################################################################
 
-class UndirectedGraph:
+class DirectedGraph:
     """
-    Adjacency list for an undirected graph.
+    Adjacency list for a directed graph.
+    In degree values stored separately for faster access.
     """
     def __init__(self):
         self.adj = collections.defaultdict(set)
+        self.in_degrees = collections.defaultdict(int)
 
-    def add_edge(self, u: str, v: str) -> None:
-        self.adj[u].add(v)
-        self.adj[v].add(u)
+    def add_vertex(self, vertex: str) -> None:
+        if vertex not in self.adj:
+            self.adj[vertex] = set()
+
+        if vertex not in self.in_degrees:
+            self.in_degrees[vertex] = 0
+
+    def add_edge(self, from_vertex: str, to_vertex: str) -> None:
+        self.adj[from_vertex].add(to_vertex)
+        if to_vertex not in self.adj:
+            self.adj[to_vertex] = set()
+
+        if to_vertex not in self.in_degrees:
+            self.in_degrees[to_vertex] = 0
+        self.in_degrees[to_vertex] += 1
+
+    def get_in_edges(self, to_vertex: str) -> set:
+        in_edges = set()
+        for from_vertex, to_vertices in self.adj.items():
+            if to_vertex in to_vertices:
+                in_edges.add((from_vertex, to_vertex))
+        return in_edges
 
     def print_graph(self) -> None:
         if not self.adj:
@@ -20,10 +41,14 @@ class UndirectedGraph:
             return
 
         print("Graph:")
-        vertices = sorted(self.adj.keys())
-        for vertex in vertices:
-            neighbors = sorted(self.adj[vertex])
-            print(f"    {vertex}: {neighbors}")
+        for from_vertex in sorted(self.adj.keys()):
+            print(f"    {from_vertex}: {sorted(self.adj[from_vertex])}")
+
+        print("\n", end="")
+        print("In degrees:")
+        for vertex in sorted(self.in_degrees.keys()):
+            print(f"    {vertex}: {self.in_degrees[vertex]}")
+
 
 #################################################################################################################################################
 #################################################################################################################################################

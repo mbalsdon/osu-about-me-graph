@@ -9,6 +9,7 @@ import asyncio
 import time
 import typing
 import gc
+import os
 
 #################################################################################################################################################
 #################################################################################################################################################
@@ -30,17 +31,17 @@ def sync_timer(func: typing.Callable[..., typing.Any], *args: typing.Any, **kwar
 #################################################################################################################################################
 
 async def main() -> None:
+    os.chdir(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
     dotenv.load_dotenv()
 
-    num_users = 1000
+    num_users = 2500
     use_last_run = True
     save_filename = "users.pkl"
-    report_filename = "false_positives.txt"
+    report_filename = "false_positives.md"
     ignore_usernames_filename = "ignore_usernames.csv"
-    mentions_top_percentile = 20
-    max_num_followers = 750
+    mentions_top_percentile = 5.0
+    max_num_followers = 1000
     rank_range_size = 50
-    curve_edges = True
     image_filename = "user_network.png"
 
     # Get API data
@@ -52,7 +53,7 @@ async def main() -> None:
     )
 
     # Parse API data
-    (mentions_graph, username_to_mentions, username_to_rank), parse_min = sync_timer(
+    (mentions_graph, username_to_rank), parse_min = sync_timer(
         parse_users,
             users,
             ignore_usernames_filename
@@ -62,7 +63,7 @@ async def main() -> None:
     _, report_min = sync_timer(
         report_false_positives,
             users,
-            username_to_mentions,
+            mentions_graph,
             mentions_top_percentile,
             max_num_followers,
             report_filename,
@@ -77,15 +78,13 @@ async def main() -> None:
     _, graphgen_min = sync_timer(
         generate_graph,
             mentions_graph,
-            username_to_mentions,
             username_to_rank,
-            curve_edges,
             rank_range_size,
             image_filename
     )
 
     # Print stuff
-    print("--- Execution completed!\n")
+    print("\n--- Execution completed!\n")
 
     print(f"You can find the image at \"{image_filename}\"")
     print(f"Ignored usernames can be found at \"{ignore_usernames_filename}\"")
@@ -106,25 +105,18 @@ if __name__ == "__main__":
 
 # TODO
 
-### DirectedGraph
-##### edge from A to B if A mentions B
-##### improve report (who mentioned this + line)
-##### graphgen options? undirected, directed (with arrows..?), undirected only if both mention eachother
-##### color based on who mentioned who?
-
 ### flags
-##### populate ignore_usernames.csv
 ##### pick out good defaults
 ##### add:
 ####### numplayers
+####### starting rank
 ####### gamemode
-####### curved/straight edges
-####### dpi, figsize (width and length), spring-force (k), iterations, seed
-####### use last run
+####### dpi, figsize (width and length), spring-force (k; increase means more spacing), iterations (inncrease means better convergence), seed
+####### use last run (maybe switch to specified savefilename input and output)
 ####### output image filename
 ####### num. vertices in edges
-####### rank-based clustering weight
-####### centrality weight
+####### rank-based clustering weight (lower means closer together)
+####### centrality weight (higher means closer together)
 ####### bigger nodes closer/farther from centre (bool)
 ####### legend (on/off)
 ####### commonword percentiles
@@ -132,6 +124,11 @@ if __name__ == "__main__":
 ####### no graph (for reporting)
 ####### max/min node diameter
 ####### rank range size
+####### rank_connection_strength (0 -> len(nodes); probably normalize to 0-1 for flag)
+####### curvature rad (0.0 = straight)
+####### arrow size
+
+### ignore unclosed client + pil logs
 
 ### look into 3d
 
