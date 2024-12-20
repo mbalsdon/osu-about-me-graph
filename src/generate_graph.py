@@ -1,16 +1,20 @@
-import PIL.ImageFile
 import classes
 
-import networkx
-import matplotlib.pyplot
+import matplotlib.axes
 import matplotlib.figure
 import matplotlib.patches
-import matplotlib.axes
+import matplotlib.pyplot
+import networkx
 import PIL.Image
+import PIL.ImageFile
 
-import typing
-import os
+import logging
 import math
+import os
+import typing
+import warnings
+
+logger = logging.getLogger("osu-about-me-graph")
 
 # Name that hopefully doesn't belong to another node
 CENTER_NODE = "\!\@\#\$\%\^\&\*\(\) CENTER \!\@\#\$\%\^\&\*\(\)"
@@ -309,10 +313,16 @@ def paste_onto(background_filename: str, foreground_filename: str) -> PIL.ImageF
     Paste foreground image onto background image.
     """
     print(f"Pasting \"{foreground_filename}\" onto \"{background_filename}\"...")
+
+    if logger.level != logging.DEBUG:
+        warnings.filterwarnings("ignore", category=PIL.Image.DecompressionBombWarning)
+
     bg = PIL.Image.open(background_filename)
     fg = PIL.Image.open(foreground_filename)
-
     bg.paste(fg, (0, 0), fg)
+
+    warnings.filterwarnings("default", category=PIL.Image.DecompressionBombWarning)
+
     return bg
 
 

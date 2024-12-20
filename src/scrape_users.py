@@ -1,25 +1,54 @@
 import classes
 
-import ossapi
-import asyncio
 import aiohttp
+import asyncio
+import ossapi
 
-import typing
-import random
+import logging
 import math
 import os
 import pickle
+import random
+import typing
+
+logger = logging.getLogger("osu-about-me-graph")
+
+# osu!API v2 docs (https://osu.ppy.sh/docs/index.html#introduction) specify ratelimit of 1200 requests/min (0.05 requests/sec).
+# Be nice to peppy by staying well under that.
+MAX_REQUESTS_PER_SEC = 0.10
+
+REQUEST_TIMEOUT_SEC = 5.0
 
 #################################################################################################################################################
 #################################################################################################################################################
 
-async def fetch_single_rankings_ids(osu: ossapi.OssapiAsync, page: int, counter: classes.ProgressCounter) -> list[int]:
-    retries = 1
-    wait_sec = 1 + random.random()
-    await asyncio.sleep(wait_sec)
+async def fetch_single_rankings_ids(
+        osu: ossapi.OssapiAsync,
+        page: int,
+        initial_wait_sec: float,
+        counter: classes.ProgressCounter
+    ) -> list[int]:
+    """
+    Requests rankings from osu!API v2 and returns userIDs.
+    Deals with server errors using [exponential backoff](https://en.wikipedia.org/wiki/Exponential_backoff).
+    """
+    await asyncio.sleep(initial_wait_sec)
+
+    retries = 0
+    wait_sec = 0.0
+
     while True:
+        err_msg = ""
         try:
-            rankings = await osu.ranking(ossapi.GameMode.OSU, ossapi.RankingType.PERFORMANCE, cursor=ossapi.Cursor(page=page))
+            # Sometimes ossapi client requests will hang
+            rankings = await asyncio.wait_for(
+                osu.ranking(
+                    ossapi.GameMode.OSU,
+                    ossapi.RankingType.PERFORMANCE,
+                    cursor=ossapi.Cursor(page=page)
+                ),
+                timeout=REQUEST_TIMEOUT_SEC
+            )
 
             # Race condition here, but locks are expensive and printing is not critical
             counter.increment()
@@ -30,43 +59,68 @@ async def fetch_single_rankings_ids(osu: ossapi.OssapiAsync, page: int, counter:
         except ValueError as e:
             error_message = str(e).lower()
 
-            # Exponential backoff if we get 429'ed. (https://en.wikipedia.org/wiki/Exponential_backoff)
+            # HTTP 429
             if "too many attempts" in error_message:
-                wait_sec = (2 ** retries) + random.random()
-                if (wait_sec >= 64):
-                    wait_sec = 64 + random.random()
-
-                retries += 1
-                continue
-
-            # Skip for other errors - may happen if for example someone gets restricted between the time
-            # we grab their ID and the time we grab their data.
-            return None
+                err_msg = f"(Coroutine #{id(asyncio.current_task())}) Ratelimited!"
+            else:
+                raise e
 
         # https://github.com/tybug/ossapi/issues/60#issuecomment-2544072157
-        except (aiohttp.ContentTypeError, aiohttp.ClientError, aiohttp.ClientOSError, asyncio.TimeoutError) as e:
-            print(f"Something broke! Retrying...")
-            retries += 1
-            continue
+        except (aiohttp.ContentTypeError, aiohttp.ClientError, aiohttp.ClientOSError) as e:
+            err_msg = f"(Coroutine #{id(asyncio.current_task())}) Something broke!"
+
+        except asyncio.TimeoutError:
+            err_msg = f"(Coroutine #{id(asyncio.current_task())}) Request timed out!"
+
+        # Exponential backoff
+        wait_sec = min(2**retries, 64) + random.random()
+        retries += 1
+        logger.debug(f"{err_msg} Waiting {wait_sec} seconds...")
+        await asyncio.sleep(wait_sec)
+        continue
 
 
 async def fetch_rankings_ids(osu: ossapi.OssapiAsync, num_pages: int) -> list[int]:
     print(f"Fetching user IDs for rankings pages 1-{num_pages} ...")
     counter = classes.ProgressCounter(0, num_pages)
-    tasks = [fetch_single_rankings_ids(osu, page, counter) for page in range(1, num_pages + 1)]
+
+    # Stay under ratelimit by firing request i at time = MAX_REQUESTS_PER_SEC * i (e.g. r1 at 0.0s, r2 at 0.1s, r3 at 0.2s, ...)
+    tasks = [
+        fetch_single_rankings_ids(osu, page, MAX_REQUESTS_PER_SEC * i, counter)
+        for i, page in enumerate(range(1, num_pages + 1))
+    ]
     results = await asyncio.gather(*tasks)
     user_ids = [id for ids in results for id in ids]
     print("\n", end="")
     return user_ids
 
 
-async def fetch_single_user(osu: ossapi.OssapiAsync, user_id: int, counter: classes.ProgressCounter) -> list[typing.Union[dict, None]]:
+async def fetch_single_user(
+        osu: ossapi.OssapiAsync,
+        user_id: int,
+        initial_wait_sec: float,
+        counter: classes.ProgressCounter
+    ) -> list[typing.Union[dict, None]]:
+    """
+    Requests user from osu!API v2.
+    Deals with server errors using [exponential backoff](https://en.wikipedia.org/wiki/Exponential_backoff).
+    """
+    await asyncio.sleep(initial_wait_sec)
+
     retries = 0
-    wait_sec = 1 + random.random()
-    await asyncio.sleep(wait_sec)
+    wait_sec = 0.0
+
     while True:
+        err_msg = ""
         try:
-            user = await osu.user(user_id, mode=ossapi.GameMode.OSU)
+            # Sometimes ossapi client requests will hang
+            user = await asyncio.wait_for(
+                osu.user(
+                    user_id,
+                    mode=ossapi.GameMode.OSU
+                ),
+                timeout=REQUEST_TIMEOUT_SEC
+            )
 
             # Race condition here, but locks are expensive and printing is not critical
             counter.increment()
@@ -83,32 +137,40 @@ async def fetch_single_user(osu: ossapi.OssapiAsync, user_id: int, counter: clas
         except ValueError as e:
             error_message = str(e).lower()
 
-            # Exponential backoff if we get 429'ed. (https://en.wikipedia.org/wiki/Exponential_backoff)
+            # HTTP 429
             if "too many attempts" in error_message:
-                wait_sec = (2 ** retries) + random.random()
-                print(f"\nRatelimited - waiting {wait_sec} seconds...")
-                if (wait_sec >= 64):
-                    wait_sec = 64 + random.random()
-
-                retries += 1
-                continue
+                err_msg = f"(Coroutine #{id(asyncio.current_task())}) Ratelimited!"
 
             # Skip for other errors - may happen if for example someone gets restricted between the time
             # we grab their ID and the time we grab their data.
-            return None
+            else:
+                return None
 
         # https://github.com/tybug/ossapi/issues/60#issuecomment-2544072157
-        except (aiohttp.ContentTypeError, aiohttp.ClientError, aiohttp.ClientOSError, asyncio.TimeoutError) as e:
-            print(f"Something broke! Retrying...")
-            retries += 1
-            continue
+        except (aiohttp.ContentTypeError, aiohttp.ClientError, aiohttp.ClientOSError) as e:
+            err_msg = f"(Coroutine #{id(asyncio.current_task())}) Something broke!"
+
+        except asyncio.TimeoutError:
+            err_msg = f"(Coroutine #{id(asyncio.current_task())}) Request timed out!"
+
+        # Exponential backoff
+        wait_sec = min(2**retries, 64) + random.random()
+        retries += 1
+        logger.debug(f"{err_msg} Waiting {wait_sec} seconds...")
+        await asyncio.sleep(wait_sec)
+        continue
 
 
 async def fetch_users(osu: ossapi.OssapiAsync, user_ids: list[typing.Union[dict, None]]) -> list[dict]:
     print("Fetching user data...")
     counter = classes.ProgressCounter(0, len(user_ids))
-    tasks = [fetch_single_user(osu, user_id, counter) for user_id in user_ids]
-    results = await asyncio.gather(*tasks, return_exceptions=False)
+
+    # Stay under ratelimit by firing request i at time = MAX_REQUESTS_PER_SEC * i (e.g. r1 at 0.0s, r2 at 0.1s, r3 at 0.2s, ...)
+    tasks = [
+        fetch_single_user(osu, user_id, MAX_REQUESTS_PER_SEC * i, counter)
+        for i, user_id in enumerate(user_ids)
+    ]
+    results = await asyncio.gather(*tasks)
     print("\n", end="")
     return [user for user in results if user is not None]
 
@@ -132,8 +194,8 @@ def load_users(filename: str) -> list[dict]:
 
 async def scrape_users(min_num_users: int, use_last_run: bool, save_filename: str) -> list[dict]:
     """
-    Scrape user data from osu!API.\n
-    Rounds min_num_users up to the nearest multiple of 50.\n
+    Scrape user data from osu!API.
+    Rounds min_num_users up to the nearest multiple of 50.
     If use_last_run is True, ignores min_num_users and reads data from save_filename.\n
     Returns list of users including:
         * "current_username": `str`
@@ -154,12 +216,19 @@ async def scrape_users(min_num_users: int, use_last_run: bool, save_filename: st
     num_pages = math.ceil(min_num_users / 50)
     print(f"\n--- Scraping osu!API data for {num_pages * 50} users...")
 
+    # Get rid of log spam caused by ossapi
+    asyncio_default_log_level = logging.getLogger("asyncio").level
+    logging.getLogger("asyncio").setLevel(logging.CRITICAL)
+
     osu = ossapi.OssapiAsync(
         os.getenv("OSU_API_CLIENT_ID"),
         os.getenv("OSU_API_CLIENT_SECRET"))
 
     user_ids = await fetch_rankings_ids(osu, num_pages)
     users = await fetch_users(osu, user_ids)
+
+    # Turn it back on now that we're done with the noisy stuff
+    logging.getLogger("asyncio").setLevel(asyncio_default_log_level)
 
     save_users(save_filename, users)
     return users
