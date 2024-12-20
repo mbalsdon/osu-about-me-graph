@@ -108,6 +108,7 @@ if __name__ == "__main__":
 ### flags
 ##### pick out good defaults
 ##### add:
+####### verbose logs (just do global var check with if?)
 ####### numplayers
 ####### starting rank
 ####### gamemode

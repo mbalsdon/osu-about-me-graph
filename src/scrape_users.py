@@ -9,16 +9,19 @@ import random
 import math
 import os
 import pickle
+import threading
 
 #################################################################################################################################################
 #################################################################################################################################################
 
 async def fetch_single_rankings_ids(osu: ossapi.OssapiAsync, page: int, counter: classes.ProgressCounter) -> list[int]:
-    retries = 1
-    wait_sec = 1 + random.random()
+    retries = 0
+    wait_sec = 0
     await asyncio.sleep(wait_sec)
+
     while True:
         try:
+            await asyncio.sleep(1 + random.random())
             rankings = await osu.ranking(ossapi.GameMode.OSU, ossapi.RankingType.PERFORMANCE, cursor=ossapi.Cursor(page=page))
 
             # Race condition here, but locks are expensive and printing is not critical
@@ -32,11 +35,12 @@ async def fetch_single_rankings_ids(osu: ossapi.OssapiAsync, page: int, counter:
 
             # Exponential backoff if we get 429'ed. (https://en.wikipedia.org/wiki/Exponential_backoff)
             if "too many attempts" in error_message:
+                print(f"(Coroutine #{id(asyncio.current_task())}) Ratelimited - waiting {wait_sec} seconds...")
                 wait_sec = (2 ** retries) + random.random()
                 if (wait_sec >= 64):
                     wait_sec = 64 + random.random()
-
                 retries += 1
+                await asyncio.sleep(wait_sec)
                 continue
 
             # Skip for other errors - may happen if for example someone gets restricted between the time
@@ -45,8 +49,7 @@ async def fetch_single_rankings_ids(osu: ossapi.OssapiAsync, page: int, counter:
 
         # https://github.com/tybug/ossapi/issues/60#issuecomment-2544072157
         except (aiohttp.ContentTypeError, aiohttp.ClientError, aiohttp.ClientOSError, asyncio.TimeoutError) as e:
-            print(f"Something broke! Retrying...")
-            retries += 1
+            print(f"(Coroutine #{id(asyncio.current_task())}) Something broke! Retrying...")
             continue
 
 
@@ -62,10 +65,11 @@ async def fetch_rankings_ids(osu: ossapi.OssapiAsync, num_pages: int) -> list[in
 
 async def fetch_single_user(osu: ossapi.OssapiAsync, user_id: int, counter: classes.ProgressCounter) -> list[typing.Union[dict, None]]:
     retries = 0
-    wait_sec = 1 + random.random()
-    await asyncio.sleep(wait_sec)
+    wait_sec = 0
+
     while True:
         try:
+            await asyncio.sleep(1 + random.random())
             user = await osu.user(user_id, mode=ossapi.GameMode.OSU)
 
             # Race condition here, but locks are expensive and printing is not critical
@@ -86,11 +90,11 @@ async def fetch_single_user(osu: ossapi.OssapiAsync, user_id: int, counter: clas
             # Exponential backoff if we get 429'ed. (https://en.wikipedia.org/wiki/Exponential_backoff)
             if "too many attempts" in error_message:
                 wait_sec = (2 ** retries) + random.random()
-                print(f"\nRatelimited - waiting {wait_sec} seconds...")
+                print(f"(Coroutine #{id(asyncio.current_task())}) Ratelimited - waiting {wait_sec} seconds...")
                 if (wait_sec >= 64):
                     wait_sec = 64 + random.random()
-
                 retries += 1
+                await asyncio.sleep(wait_sec)
                 continue
 
             # Skip for other errors - may happen if for example someone gets restricted between the time
@@ -99,8 +103,7 @@ async def fetch_single_user(osu: ossapi.OssapiAsync, user_id: int, counter: clas
 
         # https://github.com/tybug/ossapi/issues/60#issuecomment-2544072157
         except (aiohttp.ContentTypeError, aiohttp.ClientError, aiohttp.ClientOSError, asyncio.TimeoutError) as e:
-            print(f"Something broke! Retrying...")
-            retries += 1
+            print(f"(Coroutine #{id(asyncio.current_task())}) Something broke! Retrying...")
             continue
 
 
@@ -132,8 +135,8 @@ def load_users(filename: str) -> list[dict]:
 
 async def scrape_users(min_num_users: int, use_last_run: bool, save_filename: str) -> list[dict]:
     """
-    Scrape user data from osu!API.\n
-    Rounds min_num_users up to the nearest multiple of 50.\n
+    Scrape user data from osu!API.
+    Rounds min_num_users up to the nearest multiple of 50.
     If use_last_run is True, ignores min_num_users and reads data from save_filename.\n
     Returns list of users including:
         * "current_username": `str`
