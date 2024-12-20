@@ -1,15 +1,22 @@
-from scrape_users import scrape_users
-from report_false_positives import report_false_positives
-from parse_users import parse_users
 from generate_graph import generate_graph
+from parse_users import parse_users
+from report_false_positives import report_false_positives
+from scrape_users import scrape_users
 
-import dotenv
 import asyncio
+import dotenv
 
+import argparse
+import gc
+import logging
+import os
 import time
 import typing
-import gc
-import os
+
+logger = logging.getLogger("osu-about-me-graph")
+handler = logging.StreamHandler()
+handler.setFormatter(logging.Formatter("%(message)s"))
+logger.addHandler(handler)
 
 #################################################################################################################################################
 #################################################################################################################################################
@@ -34,8 +41,9 @@ async def main() -> None:
     os.chdir(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
     dotenv.load_dotenv()
 
-    num_users = 2500
-    use_last_run = True
+    log_level = logging.DEBUG
+    num_users = 1000
+    use_last_run = False
     save_filename = "users.pkl"
     report_filename = "false_positives.md"
     ignore_usernames_filename = "ignore_usernames.csv"
@@ -43,6 +51,9 @@ async def main() -> None:
     max_num_followers = 1000
     rank_range_size = 50
     image_filename = "user_network.png"
+
+    # Set log level
+    logger.setLevel(log_level)
 
     # Get API data
     users, scrape_min = await async_timer(
@@ -106,8 +117,8 @@ if __name__ == "__main__":
 # TODO
 
 ### flags
-##### pick out good defaults
 ##### add:
+####### log level (--verbose)
 ####### numplayers
 ####### starting rank
 ####### gamemode
@@ -127,8 +138,8 @@ if __name__ == "__main__":
 ####### rank_connection_strength (0 -> len(nodes); probably normalize to 0-1 for flag)
 ####### curvature rad (0.0 = straight)
 ####### arrow size
-
-### ignore unclosed client + pil logs
+####### edge width
+##### pick out good defaults; some gotta be calculated based on others
 
 ### look into 3d
 
