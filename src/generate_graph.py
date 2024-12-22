@@ -51,7 +51,13 @@ def create_base_graph(mentions_graph: classes.DirectedGraph) -> networkx.MultiDi
     return G
 
 
-def add_rank_range_edges(G: networkx.MultiDiGraph, username_to_rank: dict, rank_range_size: int) -> None:
+def add_rank_range_edges(
+        G: networkx.MultiDiGraph,
+        username_to_rank: dict,
+        rank_range_size: int,
+        rank_range_connection_strength: float,
+        rank_range_clustering_weight: float
+    ) -> None:
     """
     Add weighted invisible edges between nodes in the same rank range.
     """
@@ -71,15 +77,20 @@ def add_rank_range_edges(G: networkx.MultiDiGraph, username_to_rank: dict, rank_
             # This is the juicer - We only connect node i to (up to) the next x nodes ahead of it in the list.
             # This creates a sort of "swirly" effect on the graph where nodes in the same rank range are connected
             # to eachother in chains rather than a big clump.
-            rank_connection_strength = len(nodes) // 10
-            for j in range(i + 1, min(i + rank_connection_strength + 1, len(nodes))):
+            connection_strength = math.floor(len(nodes) * rank_range_connection_strength)
+            for j in range(i + 1, min(i + connection_strength + 1, len(nodes))):
                 node2 = nodes[j]
-                virtual_edges.append((node1, node2, {"weight": 100.0, "is_real": False}))
+                virtual_edges.append((node1, node2, {"weight": rank_range_clustering_weight, "is_real": False}))
 
     G.add_edges_from(virtual_edges)
 
 
-def add_center_edges(G: networkx.MultiDiGraph, mentions_graph: classes.DirectedGraph) -> None:
+def add_center_edges(
+        G: networkx.MultiDiGraph,
+        mentions_graph: classes.DirectedGraph,
+        big_nodes_closer: bool,
+        centrality_weight_factor: float
+    ) -> None:
     """
     Create a "center" node and create weighted invisible edges between it and every other node.
     """
@@ -91,7 +102,8 @@ def add_center_edges(G: networkx.MultiDiGraph, mentions_graph: classes.DirectedG
     for node in G.nodes():
         if node != CENTER_NODE:
             n = normalized_node_size(mentions_graph, node)
-            centrality_weight = 500.0 * (1.0 - (n**4))
+            flip = -1.0 if big_nodes_closer else 1.0
+            centrality_weight = flip * centrality_weight_factor * (1.0 - (n**4))
             virtual_edges.append((node, CENTER_NODE, {"weight": centrality_weight, "is_real": False}))
 
     G.add_edges_from(virtual_edges)
@@ -127,7 +139,11 @@ def calculate_node_properties(
         username_to_mentions: dict,
         username_to_rank: dict,
         num_users: int,
-        rank_range_size: int
+        rank_range_size: int,
+        min_diameter: int,
+        max_diameter: int,
+        min_label_size: int,
+        max_label_size: int
     ) -> tuple[list[tuple[float, float, float]], list[float], dict]:
     """
     Calculate colors, sizes, and label properties for nodes.
@@ -141,8 +157,6 @@ def calculate_node_properties(
     nodes = list(G.nodes())
 
     # Calculate diameter scale factor to map from [0, max_mentions] to [min_diameter, max_diameter]
-    min_diameter = 25
-    max_diameter = 250
     max_mentions = max(username_to_mentions.values())
     diameter_scale_factor = (max_diameter - min_diameter) / max_mentions if max_mentions > 0 else 0
 
@@ -169,7 +183,7 @@ def calculate_node_properties(
 
             # Calculate label size
             diameter_ratio = (diameter - min_diameter) / (max_diameter - min_diameter)
-            label_size = 6 + (diameter_ratio * 30)
+            label_size = min_label_size + (diameter_ratio * max_label_size)
             node_labels[node] = label_size
 
     return node_colors, node_sizes, node_labels
@@ -182,6 +196,9 @@ def draw_real_edges(
         node_sizes: list[float],
         num_users: int,
         rank_range_size: int,
+        edge_width: int,
+        edge_curvature: float,
+        arrow_size: int,
         ax: matplotlib.axes.Axes
     ) -> None:
     """
@@ -205,10 +222,10 @@ def draw_real_edges(
         edgelist=real_edges,
         edge_color=real_edge_colors,
         alpha=0.35,
-        width=2.0,
+        width=edge_width,
         node_size=node_sizes,
-        connectionstyle="arc3, rad=0.15",
-        arrowsize=1,
+        connectionstyle=f"arc3, rad={edge_curvature}",
+        arrowsize=arrow_size,
         ax=ax
     )
 
@@ -264,7 +281,7 @@ def draw_node_labels(
         )
 
 
-def create_legend(figsize: tuple[int, int], num_users: int, rank_range_size: int) -> matplotlib.figure.Figure:
+def create_legend(figsize: tuple[int, int], num_users: int, rank_range_size: int, legend_font_size: int) -> matplotlib.figure.Figure:
     """
     Create legend figure.
     Each entry is a color patch and the rank range associated with that color.
@@ -276,7 +293,7 @@ def create_legend(figsize: tuple[int, int], num_users: int, rank_range_size: int
     num_groups = (num_users + rank_range_size - 1) // rank_range_size
     for i in range(num_groups):
         start_rank = i * rank_range_size + 1
-        end_rank = min((i + 1) * rank_range_size, num_users)
+        end_rank = (i + 1) * rank_range_size
         color = rank_to_color(start_rank, num_users, rank_range_size)
 
         legend_elements.append(
@@ -297,7 +314,7 @@ def create_legend(figsize: tuple[int, int], num_users: int, rank_range_size: int
         frameon=True,
         facecolor="black",
         edgecolor="white",
-        fontsize=45,
+        fontsize=legend_font_size,
         markerscale=9,
         ncol=max(1, (num_groups + 10 - 1) // 10) # ~10 rows per column
     )
@@ -332,7 +349,25 @@ def paste_onto(background_filename: str, foreground_filename: str) -> PIL.ImageF
 def generate_graph(
         mentions_graph: classes.DirectedGraph,
         username_to_rank: dict,
+        spring_force: float,
+        iterations: int,
+        image_width: int,
+        dpi: int,
+        big_nodes_closer: bool,
+        centrality_weight_factor: float,
+        min_node_diameter: int,
+        max_node_diameter: int,
+        min_label_size: int,
+        max_label_size: int,
+        edge_width: int,
+        edge_curvature: float,
+        arrow_size: int,
         rank_range_size: int,
+        rank_range_connection_strength: float,
+        rank_range_clustering_weight: float,
+        legend_font_size: int,
+        no_graph: bool,
+        no_legend: bool,
         image_filename: str
     ) -> None:
     """
@@ -340,14 +375,18 @@ def generate_graph(
     """
     print("\n--- Generating graph...")
 
+    if no_graph:
+        print(f"'No graph' flag was set - exiting early...")
+        return
+
     if len(username_to_rank) != len(mentions_graph.adj):
         raise AssertionError(f"{len(username_to_rank)} != {len(mentions_graph.adj)}")
     num_users = len(username_to_rank)
 
     # Add nodes and edges
     G = create_base_graph(mentions_graph)
-    add_rank_range_edges(G, username_to_rank, rank_range_size)
-    add_center_edges(G, mentions_graph)
+    add_rank_range_edges(G, username_to_rank, rank_range_size, rank_range_connection_strength, rank_range_clustering_weight)
+    add_center_edges(G, mentions_graph, big_nodes_closer, centrality_weight_factor)
 
     # Calculate layout
     print("Calculating node positions...")
@@ -355,14 +394,15 @@ def generate_graph(
         G,
         pos={CENTER_NODE: (0, 0)},
         fixed=[CENTER_NODE],
-        k=2.5,
-        iterations=250,
+        k=spring_force,
+        iterations=iterations,
         weight="weight",
         seed=727
     )
 
     # Set up figure
-    figure = matplotlib.pyplot.figure(figsize=(100, 100), facecolor="black")
+    figure_size = (image_width, image_width)
+    figure = matplotlib.pyplot.figure(figsize=figure_size, facecolor="black")
     ax = figure.add_subplot(111)
     ax.set_facecolor("black")
 
@@ -372,29 +412,39 @@ def generate_graph(
         mentions_graph.in_degrees,
         username_to_rank,
         num_users,
-        rank_range_size
+        rank_range_size,
+        min_node_diameter,
+        max_node_diameter,
+        min_label_size,
+        max_label_size
     )
 
     # Draw everything onto the figure
-    draw_real_edges(G, pos, username_to_rank, node_sizes, num_users, rank_range_size, ax)
+    draw_real_edges(G, pos, username_to_rank, node_sizes, num_users, rank_range_size, edge_width, edge_curvature, arrow_size, ax)
     draw_real_nodes(G, pos, node_sizes, node_colors, ax)
     draw_node_labels(G, pos, node_labels, ax)
 
     # Save graph
     ax.axis("off")
     print(f"Saving graph to {image_filename}...")
-    matplotlib.pyplot.savefig(image_filename, dpi=100, facecolor="black", edgecolor="none")
+    matplotlib.pyplot.savefig(image_filename, dpi=dpi, facecolor="black", edgecolor="none")
 
-    # Create and save legend (to temporary file)
-    legend_figure = create_legend((100, 100), num_users, rank_range_size)
-    legend_figure.savefig(TEMP_LEGEND_FILENAME, dpi=100, facecolor="none", edgecolor="none")
+    if no_legend:
+        print("'No legend' flag was set, not creating one...")
+    else:
+        # Create and save legend (to temporary file)
+        legend_figure = create_legend(figure_size, num_users, rank_range_size, legend_font_size)
+        legend_figure.savefig(TEMP_LEGEND_FILENAME, dpi=dpi, facecolor="none", edgecolor="none")
 
-    # Combine graph/legend and save final result
-    main_img = paste_onto(image_filename, TEMP_LEGEND_FILENAME)
-    main_img.save(image_filename, format="PNG")
+        # Combine graph/legend and save final result
+        main_img = paste_onto(image_filename, TEMP_LEGEND_FILENAME)
+        main_img.save(image_filename, format="PNG")
+
+        # Clean up
+        print(f"Removing {TEMP_LEGEND_FILENAME}...")
+        os.remove(TEMP_LEGEND_FILENAME)
 
     # Clean up
-    os.remove(TEMP_LEGEND_FILENAME)
     matplotlib.pyplot.close("all")
 
 #################################################################################################################################################

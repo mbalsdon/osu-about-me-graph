@@ -30,8 +30,8 @@ def find_bounded_substring(text: str, substring: str, delimiter: str) -> str:
 def report_false_positives(
         users: list[dict],
         mentions_graph: classes.DirectedGraph,
-        mentions_top_percentile: int,
-        max_num_followers: int,
+        mentions_top_percentile: float,
+        max_followers: int,
         report_filename: str,
         ignore_usernames_filename: str
     ) -> None:
@@ -55,7 +55,7 @@ def report_false_positives(
     most_mentioned = mentions_list_desc[:num_elmts]
 
     # Get followcounts under threshold
-    followers_under_threshold = [u[0] for u in username_to_followers.items() if u[1] <= max_num_followers]
+    followers_under_threshold = [u[0] for u in username_to_followers.items() if u[1] <= max_followers]
 
     # Find users common to both lists (maintain order of mentions)
     possible_common_word_usernames = [username for username in most_mentioned if username in set(followers_under_threshold)]
@@ -71,10 +71,10 @@ def report_false_positives(
         "",
         "There is no easy method or algorithm that will figure out when someone is referring to a user, as opposed to using a word. Here, we use number of mentions and follower count as a metric. The users below:",
         f"* Are in the top {mentions_top_percentile}% of mentions",
-        f"* Have at most {max_num_followers} followers",
+        f"* Have at most {max_followers} followers",
         "",
         "You can tweak these values and re-generate this report by running with additional flags, e.g.",
-        "`TODO: flags`",
+        "`python3 src/main.py --fp-max-followers 727 --fp-mentions-top-percentile 72.7 --use-last-run --no-graph`",
         "",
         "For each \"suspicious\" username, we also provide some random examples of how their name is being used on other profiles. This should ideally help you decide whether the username is being used as a mention or as a word.",
         "",

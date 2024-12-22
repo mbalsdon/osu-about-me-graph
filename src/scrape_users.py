@@ -24,6 +24,7 @@ REQUEST_TIMEOUT_SEC = 5.0
 
 async def fetch_single_rankings_ids(
         osu: ossapi.OssapiAsync,
+        mode: ossapi.GameMode,
         page: int,
         initial_wait_sec: float,
         counter: classes.ProgressCounter
@@ -43,7 +44,7 @@ async def fetch_single_rankings_ids(
             # Sometimes ossapi client requests will hang
             rankings = await asyncio.wait_for(
                 osu.ranking(
-                    ossapi.GameMode.OSU,
+                    mode,
                     ossapi.RankingType.PERFORMANCE,
                     cursor=ossapi.Cursor(page=page)
                 ),
@@ -80,14 +81,14 @@ async def fetch_single_rankings_ids(
         continue
 
 
-async def fetch_rankings_ids(osu: ossapi.OssapiAsync, num_pages: int) -> list[int]:
-    print(f"Fetching user IDs for rankings pages 1-{num_pages} ...")
+async def fetch_rankings_ids(osu: ossapi.OssapiAsync, mode: ossapi.GameMode, first_page: int, num_pages: int) -> list[int]:
+    print(f"Fetching user IDs for rankings pages {first_page}-{first_page + num_pages - 1} ...")
     counter = classes.ProgressCounter(0, num_pages)
 
     # Stay under ratelimit by firing request i at time = MAX_REQUESTS_PER_SEC * i (e.g. r1 at 0.0s, r2 at 0.1s, r3 at 0.2s, ...)
     tasks = [
-        fetch_single_rankings_ids(osu, page, MAX_REQUESTS_PER_SEC * i, counter)
-        for i, page in enumerate(range(1, num_pages + 1))
+        fetch_single_rankings_ids(osu, mode, page, MAX_REQUESTS_PER_SEC * i, counter)
+        for i, page in enumerate(range(first_page, first_page + num_pages))
     ]
     results = await asyncio.gather(*tasks)
     user_ids = [id for ids in results for id in ids]
@@ -97,6 +98,7 @@ async def fetch_rankings_ids(osu: ossapi.OssapiAsync, num_pages: int) -> list[in
 
 async def fetch_single_user(
         osu: ossapi.OssapiAsync,
+        mode: ossapi.GameMode,
         user_id: int,
         initial_wait_sec: float,
         counter: classes.ProgressCounter
@@ -117,7 +119,7 @@ async def fetch_single_user(
             user = await asyncio.wait_for(
                 osu.user(
                     user_id,
-                    mode=ossapi.GameMode.OSU
+                    mode=mode
                 ),
                 timeout=REQUEST_TIMEOUT_SEC
             )
@@ -161,13 +163,13 @@ async def fetch_single_user(
         continue
 
 
-async def fetch_users(osu: ossapi.OssapiAsync, user_ids: list[typing.Union[dict, None]]) -> list[dict]:
+async def fetch_users(osu: ossapi.OssapiAsync, mode: ossapi.GameMode, user_ids: list[typing.Union[dict, None]]) -> list[dict]:
     print("Fetching user data...")
     counter = classes.ProgressCounter(0, len(user_ids))
 
     # Stay under ratelimit by firing request i at time = MAX_REQUESTS_PER_SEC * i (e.g. r1 at 0.0s, r2 at 0.1s, r3 at 0.2s, ...)
     tasks = [
-        fetch_single_user(osu, user_id, MAX_REQUESTS_PER_SEC * i, counter)
+        fetch_single_user(osu, mode, user_id, MAX_REQUESTS_PER_SEC * i, counter)
         for i, user_id in enumerate(user_ids)
     ]
     results = await asyncio.gather(*tasks)
@@ -192,11 +194,10 @@ def load_users(filename: str) -> list[dict]:
 #################################################################################################################################################
 #################################################################################################################################################
 
-async def scrape_users(min_num_users: int, use_last_run: bool, save_filename: str) -> list[dict]:
+async def scrape_users(start_rank: int, num_users: int, gamemode: ossapi.GameMode, use_last_run: bool, save_filename: str) -> list[dict]:
     """
     Scrape user data from osu!API.
-    Rounds min_num_users up to the nearest multiple of 50.
-    If use_last_run is True, ignores min_num_users and reads data from save_filename.\n
+    If use_last_run is True, ignores num_users and reads data from save_filename.\n
     Returns list of users including:
         * "current_username": `str`
         * "previous_usernames": `list[str]`
@@ -210,11 +211,14 @@ async def scrape_users(min_num_users: int, use_last_run: bool, save_filename: st
             raise FileNotFoundError(f"Savefile {save_filename} could not be found!")
         return load_users(save_filename)
 
-    if min_num_users < 1 or min_num_users > 10000:
+    if start_rank < 1 or start_rank > 10000:
+        raise ValueError(f"Start rank must be between 1-10000!")
+    if num_users < 1 or num_users > 10000:
         raise ValueError(f"Number of users must be between 1-10000!")
 
-    num_pages = math.ceil(min_num_users / 50)
-    print(f"\n--- Scraping osu!API data for {num_pages * 50} users...")
+    first_page = math.floor((start_rank - 1) / 50) + 1
+    num_pages = math.ceil((start_rank + num_users - 1) / 50)
+    print(f"\n--- Scraping osu!API data for {num_users} users...")
 
     # Get rid of log spam caused by ossapi
     asyncio_default_log_level = logging.getLogger("asyncio").level
@@ -224,8 +228,19 @@ async def scrape_users(min_num_users: int, use_last_run: bool, save_filename: st
         os.getenv("OSU_API_CLIENT_ID"),
         os.getenv("OSU_API_CLIENT_SECRET"))
 
-    user_ids = await fetch_rankings_ids(osu, num_pages)
-    users = await fetch_users(osu, user_ids)
+    user_ids = await fetch_rankings_ids(osu, gamemode, first_page, num_pages)
+    users = await fetch_users(osu, gamemode, user_ids)
+    
+    # Remove excess users
+    num_remove_from_back = (50 - (num_users % 50)) % 50
+    num_remove_from_front = (start_rank - 1) % 50
+    print(f"Removing {num_remove_from_back + num_remove_from_front} excess users...")
+
+    users = [u for u in sorted(users, key=lambda user: (user["global_rank"]), reverse=False)]
+    if num_remove_from_front != 0:
+        users = users[num_remove_from_front:]
+    if num_remove_from_back != 0:
+        users = users[:-num_remove_from_back]
 
     # Turn it back on now that we're done with the noisy stuff
     logging.getLogger("asyncio").setLevel(asyncio_default_log_level)
