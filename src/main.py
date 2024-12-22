@@ -1,3 +1,4 @@
+import args
 from generate_graph import generate_graph
 from parse_users import parse_users
 from report_false_positives import report_false_positives
@@ -6,7 +7,6 @@ from scrape_users import scrape_users
 import asyncio
 import dotenv
 
-import argparse
 import gc
 import logging
 import os
@@ -38,27 +38,55 @@ def sync_timer(func: typing.Callable[..., typing.Any], *args: typing.Any, **kwar
 #################################################################################################################################################
 
 async def main() -> None:
+    args.parse_arguments()
     os.chdir(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
     dotenv.load_dotenv()
 
-    log_level = logging.DEBUG
-    num_users = 1000
-    use_last_run = False
     save_filename = "users.pkl"
     report_filename = "false_positives.md"
     ignore_usernames_filename = "ignore_usernames.csv"
-    mentions_top_percentile = 5.0
-    max_num_followers = 1000
-    rank_range_size = 50
     image_filename = "user_network.png"
 
+    big_nodes_closer = args.ARGS.big_nodes_closer
+    no_graph = args.ARGS.no_graph
+    no_legend = args.ARGS.no_legend
+    use_last_run = args.ARGS.use_last_run
+    verbose = args.ARGS.verbose
+
+    arrow_size = args.ARGS.arrow_size
+    centrality_weight_factor = args.ARGS.centrality_weight
+    dpi = args.ARGS.dpi
+    edge_curvature = args.ARGS.edge_curvature
+    edge_width = args.ARGS.edge_width
+    fp_max_followers = args.ARGS.fp_max_followers
+    fp_mentions_top_percentile = args.ARGS.fp_mentions_top_percentile
+    gamemode = args.ARGS.gamemode
+    image_width = args.ARGS.image_width
+    iterations = args.ARGS.iterations
+    legend_font_size = args.ARGS.legend_font_size
+    max_node_diameter = args.ARGS.max_node_diameter
+    min_node_diameter = args.ARGS.min_node_diameter
+    max_label_size = args.ARGS.max_label_size
+    min_label_size = args.ARGS.min_label_size
+    num_users = args.ARGS.num_users
+    rank_range_clustering_weight = args.ARGS.rank_range_clustering_weight
+    rank_range_connection_strength = args.ARGS.rank_range_connection_strength
+    rank_range_size = args.ARGS.rank_range_size
+    spring_force = args.ARGS.spring_force
+    start_rank = args.ARGS.start_rank
+
     # Set log level
-    logger.setLevel(log_level)
+    if verbose:
+        logger.setLevel(logging.DEBUG)
+    else:
+        logger.setLevel(logging.INFO)
 
     # Get API data
     users, scrape_min = await async_timer(
         scrape_users,
+            start_rank,
             num_users,
+            gamemode,
             use_last_run,
             save_filename
     )
@@ -75,8 +103,8 @@ async def main() -> None:
         report_false_positives,
             users,
             mentions_graph,
-            mentions_top_percentile,
-            max_num_followers,
+            fp_mentions_top_percentile,
+            fp_max_followers,
             report_filename,
             ignore_usernames_filename
     )
@@ -90,7 +118,25 @@ async def main() -> None:
         generate_graph,
             mentions_graph,
             username_to_rank,
+            spring_force,
+            iterations,
+            image_width,
+            dpi,
+            big_nodes_closer,
+            centrality_weight_factor,
+            min_node_diameter,
+            max_node_diameter,
+            min_label_size,
+            max_label_size,
+            edge_width,
+            edge_curvature,
+            arrow_size,
             rank_range_size,
+            rank_range_connection_strength,
+            rank_range_clustering_weight,
+            legend_font_size,
+            no_graph,
+            no_legend,
             image_filename
     )
 
@@ -116,33 +162,6 @@ if __name__ == "__main__":
 
 # TODO
 
-### flags
-##### add:
-####### log level (--verbose)
-####### numplayers
-####### starting rank
-####### gamemode
-####### dpi, figsize (width and length), spring-force (k; increase means more spacing), iterations (inncrease means better convergence), seed
-####### use last run (maybe switch to specified savefilename input and output)
-####### output image filename
-####### num. vertices in edges
-####### rank-based clustering weight (lower means closer together)
-####### centrality weight (higher means closer together)
-####### bigger nodes closer/farther from centre (bool)
-####### legend (on/off)
-####### commonword percentiles
-######### add this to report
-####### no graph (for reporting)
-####### max/min node diameter
-####### rank range size
-####### rank_connection_strength (0 -> len(nodes); probably normalize to 0-1 for flag)
-####### curvature rad (0.0 = straight)
-####### arrow size
-####### edge width
-##### pick out good defaults; some gotta be calculated based on others
-
-### look into 3d
-
 ### readme
 ##### running:
 ####### cd /path/to/osu-about-me-graph
@@ -150,11 +169,16 @@ if __name__ == "__main__":
 ####### python3 -m venv venv
 ####### source venv/bin/activate
 ####### pip install ossapi networkx matplotlib asyncio aiohttp python-dotenv scipy numpy pillow
-####### python3 main.py
+######### verify this
+####### python3 src/main.py
 ##### rename conflicts
 ##### common-word-usernames (e.g. "Hello")
 
 # FUTURE
+
+### look into 2d interactive (plotly :cookiemonster:)
+##### rmbr do for all gamemodes :-)
+### look into 3d (also plotly :cookiemonster:)
 
 ### 2d interactive?
 
