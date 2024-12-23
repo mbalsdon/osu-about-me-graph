@@ -200,7 +200,7 @@ def parse_arguments() -> None:
 
     # Set defaults
     if ARGS.arrow_size is None:
-        ARGS.arrow_size = 1
+        ARGS.arrow_size = 10
 
     if ARGS.centrality_weight is None:
         ARGS.centrality_weight = 500.0
@@ -227,7 +227,7 @@ def parse_arguments() -> None:
         ARGS.image_width = 100
 
     if ARGS.iterations is None:
-        ARGS.iterations = 250
+        ARGS.iterations = 150
 
     if ARGS.legend_font_size is None:
         ARGS.legend_font_size = 50

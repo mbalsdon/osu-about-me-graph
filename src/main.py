@@ -8,6 +8,7 @@ import asyncio
 import dotenv
 
 import gc
+import io
 import logging
 import os
 import time
@@ -40,7 +41,8 @@ def sync_timer(func: typing.Callable[..., typing.Any], *args: typing.Any, **kwar
 async def main() -> None:
     args.parse_arguments()
     os.chdir(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-    dotenv.load_dotenv()
+    with io.open('.env', 'r', encoding='utf-8-sig') as f:
+        dotenv.load_dotenv(stream=f)
 
     save_filename = "users.pkl"
     report_filename = "false_positives.md"
@@ -161,25 +163,7 @@ if __name__ == "__main__":
 #################################################################################################################################################
 
 # TODO
-
-### readme
-##### running:
-####### cd /path/to/osu-about-me-graph
-####### printf "OSU_API_CLIENT_ID=[your client ID here]\nOSU_API_CLIENT_SECRET=[your client secret here]" > .env
-####### python3 -m venv venv
-####### source venv/bin/activate
-####### pip install ossapi networkx matplotlib asyncio aiohttp python-dotenv scipy numpy pillow
-######### verify this
-####### python3 src/main.py
-##### rename conflicts
-##### common-word-usernames (e.g. "Hello")
-
-# FUTURE
-
-### look into 2d interactive (plotly :cookiemonster:)
+### plotly 2d interactive (write from scratch no networkx)
+##### flag
 ##### rmbr do for all gamemodes :-)
-### look into 3d (also plotly :cookiemonster:)
-
-### 2d interactive?
-
-### executable?
+##### readme
