@@ -13,7 +13,7 @@ import os
 import typing
 
 # Name that hopefully doesn't belong to another node
-CENTER_NODE = "\!\@\#\$\%\^\&\*\(\) CENTER \!\@\#\$\%\^\&\*\(\)"
+CENTER_NODE = "***CENTER_NODE***"
 
 TEMP_LEGEND_FILENAME = "legend_temp.png"
 

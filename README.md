@@ -24,7 +24,10 @@ To pull data from the osu!API, you will need a registered [osu! OAuth client](ht
 3. Install dependencies:
     - `pip install ossapi networkx matplotlib asyncio aiohttp python-dotenv scipy numpy pillow`
 
-To use the tool, run `python src/main.py`.
+To use the tool, run `python src/main.py`. This will generate a PNG image of the graph. To generate and view an interactive HTML/JS version:
+- Run `python src/main.py --save-json --no-graph <optional extra flags>`
+- Start a local development server (e.g. `npx http-server` or `python -m http.server`)
+- Open `localhost:<port>/html/user_network.html` in a browser
 
 ## Features
 For a list of all customization flags, run `python src/main.py -h`.
@@ -37,6 +40,7 @@ For a list of all customization flags, run `python src/main.py -h`.
 - Takes all previous usernames into account; i.e. if players reference 'ryuk' in their profile but he renames to 'connor mcdavid', mentions will still be tallied.
 - Automatically resolves rename conflicts; i.e. if players reference 'shigetora' in their profile but he renames to 'chocomint' and someone else takes the name 'shigetora', mentions will be correctly attributed to 'chocomint'.
 - Generates a configurable 'possible false-positives report' which demarcates usernames that may incorrectly be receiving mention tallies because of their common use in profile pages ('hello', 'wooting', 'hddt', etc.). These usernames can then subsequently be ignored by their addition to a CSV file.
+- PNG format (using networkX) and interactive HTML/JS format (using cytoscape.js)
 
 ## Contributing
 If you find any bugs or want to request a feature, feel free to open an [issue](https://github.com/mbalsdon/osu-about-me-graph/issues). If you want to make changes, feel free to open a PR. For direct contact, my DMs are open on Discord @spreadnuts.

@@ -1,5 +1,6 @@
 import classes
 
+import json
 import os
 
 #################################################################################################################################################
@@ -14,10 +15,46 @@ def get_ignored_usernames(ignore_usernames_filename: str) -> list[str]:
         ignored_usernames = [line.strip().lower() for line in f]
         return ignored_usernames
 
+
+def save_to_json(mentions_graph: classes.DirectedGraph, current_to_rank: dict, json_out_filename: str) -> None:
+    nodes = []
+    for username, rank in current_to_rank.items():
+        nodes.append({
+            "data": {
+                "id": username,
+                "label": username,
+                "rank": rank
+            }
+        })
+
+    edges = []
+    for source_node, target_nodes in mentions_graph.adj.items():
+        for target_node in target_nodes:
+            edges.append({
+                "data": {
+                    "id": f"{source_node}*{target_node}",
+                    "source": source_node,
+                    "target": target_node,
+                }
+            })
+
+    data = {
+        "nodes": nodes,
+        "edges": edges
+    }
+
+    with open(json_out_filename, 'w', encoding='utf-8') as f:
+        json.dump(data, f, indent=4, sort_keys=True)
+
 #################################################################################################################################################
 #################################################################################################################################################
 
-def parse_users(users: list[dict], ignore_usernames_filename: str) -> tuple[classes.DirectedGraph, dict]:
+def parse_users(
+        users: list[dict],
+        ignore_usernames_filename: str,
+        save_json: bool,
+        json_filename: str
+    ) -> tuple[classes.DirectedGraph, dict]:
     """
     Parse user about me pages. Returns a tuple containing the following:
         * Undirected graph, where an edge exists between player A and B iff player A mentions player B.
@@ -87,6 +124,10 @@ def parse_users(users: list[dict], ignore_usernames_filename: str) -> tuple[clas
         counter.print_progress_bar()
 
     print("\n", end="")
+
+    if save_json:
+        print(f"JSON flag was set; saving to {json_filename}...")
+        save_to_json(mentions_graph, current_to_rank, json_filename)
 
     return mentions_graph, current_to_rank
 
