@@ -48,7 +48,9 @@ async def main() -> None:
     report_filename = "false_positives.md"
     ignore_usernames_filename = "ignore_usernames.csv"
     image_filename = "user_network.png"
+    json_filename = "html/graph_data.json"
 
+    save_json = args.ARGS.save_json
     big_nodes_closer = args.ARGS.big_nodes_closer
     no_graph = args.ARGS.no_graph
     no_legend = args.ARGS.no_legend
@@ -97,7 +99,9 @@ async def main() -> None:
     (mentions_graph, username_to_rank), parse_min = sync_timer(
         parse_users,
             users,
-            ignore_usernames_filename
+            ignore_usernames_filename,
+            save_json,
+            json_filename
     )
 
     # Generate false-positives report
@@ -145,15 +149,23 @@ async def main() -> None:
     # Print stuff
     print("\n--- Execution completed!\n")
 
-    print(f"You can find the image at \"{image_filename}\"")
+    if not no_graph:
+        print(f"You can find the image at \"{image_filename}\"")
     print(f"Ignored usernames can be found at \"{ignore_usernames_filename}\"")
     print(f"Possible false-positives can be found at \"{report_filename}\"")
-    print(f"Savefile located at \"{save_filename}\"\n")
+    if not use_last_run:
+        print(f"Savefile is located at \"{save_filename}\"")
+    if save_json:
+        print(f"JSON save is located at \"{json_filename}\"")
+    print("\n", end="")
 
-    print(f"API scraping took {round(scrape_min, 4):.4f} minutes.")
+    if not use_last_run:
+        print(f"API scraping took {round(scrape_min, 4):.4f} minutes.")
     print(f"False-positive search took {round(report_min, 4):.4f} minutes.")
     print(f"User data parsing took {round(parse_min, 4):.4f} minutes.")
-    print(f"Graph generation took {round(graphgen_min, 4):.4f} minutes.\n")
+    if not no_graph:
+        print(f"Graph generation took {round(graphgen_min, 4):.4f} minutes.")
+    print("\n", end="")
 
 
 if __name__ == "__main__":
@@ -163,7 +175,10 @@ if __name__ == "__main__":
 #################################################################################################################################################
 
 # TODO
-### plotly 2d interactive (write from scratch no networkx)
-##### flag
-##### rmbr do for all gamemodes :-)
-##### readme
+### cytoscape
+##### clean up code
+##### readme (save-json no-graph, npx http-server)
+
+### host page (put the cc in the bag)
+##### possible to gen once and keep positions static (then can do 10k?)
+##### else 1k users, 4 pages for diff modes or sth

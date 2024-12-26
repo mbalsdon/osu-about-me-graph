@@ -33,6 +33,13 @@ def parse_arguments() -> None:
     )
 
     parser.add_argument(
+        "--save-json",
+        help="save graph data to cytoscape-compatible json file",
+        action="store_true",
+        required=False
+    )
+
+    parser.add_argument(
         "--use-last-run",
         help="use osu!API player data fetched from a previous run",
         action="store_true",
