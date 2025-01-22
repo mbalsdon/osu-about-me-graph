@@ -44,12 +44,6 @@ async def main() -> None:
     with io.open('.env', 'r', encoding='utf-8-sig') as f:
         dotenv.load_dotenv(stream=f)
 
-    save_filename = "users.pkl"
-    report_filename = "false_positives.md"
-    ignore_usernames_filename = "ignore_usernames.csv"
-    image_filename = "user_network.png"
-    json_filename = "html/graph_data.json"
-
     save_json = args.ARGS.save_json
     big_nodes_closer = args.ARGS.big_nodes_closer
     no_graph = args.ARGS.no_graph
@@ -78,6 +72,12 @@ async def main() -> None:
     rank_range_size = args.ARGS.rank_range_size
     spring_force = args.ARGS.spring_force
     start_rank = args.ARGS.start_rank
+
+    save_filename = "users.pkl"
+    report_filename = "false_positives.md"
+    ignore_usernames_filename = "ignore_usernames.csv"
+    image_filename = "user_network.png"
+    json_filename = "html/graph_data_" + gamemode.value + ".json"
 
     # Set log level
     if verbose:
@@ -175,6 +175,7 @@ if __name__ == "__main__":
 #################################################################################################################################################
 
 # TODO
-### host page (put the cc in the bag)
-##### possible to gen once and keep positions static (then can do 10k?)
-##### else 1k users, 4 pages for diff modes or sth
+### host page (put the cc in the bag) (maybe github io ??)
+##### ignore usernames (redo for std, gotta do for other 3 gms)
+##### 5k(?) users
+##### static flag on

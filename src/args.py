@@ -105,7 +105,7 @@ def parse_arguments() -> None:
 
     parser.add_argument(
         "--gamemode",
-        help="osu! gamemode [std, taiko, mania, catch]",
+        help="osu! gamemode [osu, taiko, mania, catch]",
         type=str,
         required=False
     )
@@ -228,7 +228,7 @@ def parse_arguments() -> None:
         ARGS.fp_mentions_top_percentile = 5.0
 
     if ARGS.gamemode is None:
-        ARGS.gamemode = "std"
+        ARGS.gamemode = "osu"
 
     if ARGS.image_width is None:
         ARGS.image_width = 100
@@ -301,8 +301,8 @@ def parse_arguments() -> None:
         print("FP mentions top percentile must be within [0, 100]!")
         do_exit = True
 
-    if ARGS.gamemode not in ["std", "taiko", "mania", "catch"]:
-        print("Gamemode must be one of std, taiko, mania, or catch!")
+    if ARGS.gamemode not in ["osu", "taiko", "mania", "catch"]:
+        print("Gamemode must be one of osu, taiko, mania, or catch!")
         do_exit = True
 
     if ARGS.image_width <= 0:
