@@ -24,14 +24,26 @@ To pull data from the osu!API, you will need a registered [osu! OAuth client](ht
 3. Install dependencies:
     - `pip install ossapi networkx matplotlib asyncio aiohttp python-dotenv scipy numpy pillow`
 
-To use the tool, run `python src/main.py`. This will generate a PNG image of the graph. To generate and view an interactive HTML/JS version:
-- Run `python src/main.py --save-json --no-graph <optional extra flags>`
+To use the tool, run `python src/main.py`. This will generate a PNG image of the graph. To see customization flags, run `python src/main.py -h`.
+
+#### Interactive HTML/JS Graph
+To generate and view an interactive HTML/JS version:
+- Run `python src/main.py --save-json --no-graph --gamemode=<gamemode> [additional extra flags...]`
 - Start a local development server (e.g. `npx http-server` or `python -m http.server`)
-- Open `localhost:<port>/html/user_network.html` in a browser
+- Open `localhost:<port>/html/user_network.html?mode=<gamemode>` in a browser
+
+Page loads may take a very long time for large enough sets of users, mainly due to the single-threadedness of JavaScript. To avoid this in the future:
+- Press the "Download Graph Data" button on the page
+- Move the downloaded file into the same directory as `user_network.html`
+- Set `USE_STATIC_GRAPH_DATA` in `user_network.js` to `true`.
+
+The downloaded file contains position info for each node, so that the graph doesn't have to be recomputed each time the page loads. You may have to flush your browser cache to see results immediately.
+
+If you want the gamemode selection dropdown menu to work, you will have to populate additional JSON files. You can do this by repeating the steps above for other gamemodes.
 
 ## Features
 For a list of all customization flags, run `python src/main.py -h`.
-- Gamemode selection (std, taiko, mania, catch) and user rank selection (i.e. build a graph for users ranked #324 - #727)
+- Gamemode selection (osu, taiko, mania, catch) and user rank selection (i.e. build a graph for users ranked #324 - #727)
 - Rich customization support for graph generation including:
     - Rank-range selection, clustering strength, and connection strength (i.e. build a graph where users with ranks #1-#100, #101-#200, etc. are tightly packed in clusters).
     - Node centralization parameters (i.e. group users around the center where more-mentioned ones are pulled closer/farther)
