@@ -16,14 +16,14 @@ const GRAPH_DATA_FILENAMES = {
     nonstatic_osu   : "graph_data_osu.json",
     nonstatic_taiko : "graph_data_taiko.json",
     nonstatic_mania : "graph_data_mania.json",
-    nonstatic_catch : "graph_data_catch.json",
+    nonstatic_fruits : "graph_data_fruits.json",
 
     static_osu   : "static_graph_data_osu.json",
     static_taiko : "static_graph_data_taiko.json",
     static_mania : "static_graph_data_mania.json",
-    static_catch : "static_graph_data_catch.json",
+    static_fruits : "static_graph_data_fruits.json",
 };
-const GAMEMODES = ['osu', 'taiko', 'mania', 'catch'];
+const GAMEMODES = ['osu', 'taiko', 'mania', 'fruits'];
 
 //\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\
 //\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\
