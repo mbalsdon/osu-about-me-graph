@@ -1,7 +1,3 @@
-let cy;
-
-const RANK_RANGE_SIZE = 100;
-
 /**
  * Nonstatic files will not be used if the flag is set to true, and vice-versa.
  * You have to populate these yourself using the python tool.
@@ -24,6 +20,14 @@ const GRAPH_DATA_FILENAMES = {
     static_fruits : "static_graph_data_fruits.json",
 };
 const GAMEMODES = ['osu', 'taiko', 'mania', 'fruits'];
+const RANK_RANGE_SIZE = 100;
+
+let cy;
+let currOutgoers;
+let profileDataOpen = false;
+let aboutOpen = false;
+let isResizing = false;
+let startY, startHeight;
 
 //\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\
 //\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\
@@ -73,21 +77,25 @@ function rankToColor(rank, numUsers) {
 function openInfoPanel(nodeData) {
     const node = cy.$(`node[id = "${nodeData.id}"]`);
     const incomingNodes = node.incomers().nodes().map(n =>
-        `- <a href="#" onclick="handleNodeClick('${n.id()}'); return false;" style="color: #00aaff; text-decoration: none;">
+        `• <a href="#" onclick="handleNodeClick('${n.id()}'); return false;" style="color: #00aaff; text-decoration: none;" onmouseover="this.style.color='#0088ff'" onmouseout="this.style.color='#00aaff'">
             ${n.data('label')}
         </a> (#${n.data('rank')})`
     ).join('<br>');
 
     const outgoingNodes = node.outgoers().nodes().map(n =>
-        `- <a href="#" onclick="handleNodeClick('${n.id()}'); return false;" style="color: #00aaff; text-decoration: none;">
+        `• <a href="#" onclick="handleNodeClick('${n.id()}'); return false;" style="color: #00aaff; text-decoration: none;" onmouseover="this.style.color='#0088ff'" onmouseout="this.style.color='#00aaff'">
             ${n.data('label')}
         </a> (#${n.data('rank')})`
     ).join('<br>');
 
+    // Gstate to avoid quoting problems from passing into inlined fn yesssssssss this is bad whatever man 
+    currOutgoers = node.outgoers().nodes().map(n => `${n.id()}`);
+
     document.getElementById('infoTitle').innerHTML = `
-        <a href="https://osu.ppy.sh/users/${nodeData.label}" target="_blank" style="color: #00aaff; text-decoration: none;">
+        <a href="#" onclick="handleNodeClick('${nodeData.id}'); return false;" style="color: #00aaff; text-decoration: none;" onmouseover="this.style.color='#0088ff'" onmouseout="this.style.color='#00aaff'">
             ${nodeData.label}
         </a> (#${nodeData.rank})
+        <div onclick="openProfileData('${nodeData.id}', \`${encodeURIComponent(nodeData.about_me)}\`);" style="font-size: 10px; color: #0099ff; margin-top: 4px; font-weight: normal; cursor: pointer;" onmouseover="this.style.color='#0077ff'" onmouseout="this.style.color='#0099ff'">View raw profile data</div>
         <hr></hr>
     `.trim();
 
@@ -113,42 +121,141 @@ function closeInfoPanel() {
 }
 
 /**
+ * Open raw profile data modal.
+ */
+function openProfileData(id, encodedAboutMe) {
+    if (profileDataOpen) { return; }
+    profileDataOpen = true;
+
+    const aboutMe = decodeURIComponent(encodedAboutMe);
+
+    const overlay = document.createElement('div');
+    overlay.className = 'modal';
+
+    const modal = document.createElement('div');
+    modal.className = 'modalText';
+
+    const highlighted = aboutMe.replace(
+        new RegExp(currOutgoers.map(s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'), 'gi'),
+        match => `<span style="background-color: #cfb600; color: black;">${match}</span>`
+    )
+
+    modal.innerHTML = `
+        <h2>${id}</h2>
+        <div>${highlighted}</div>
+        <button onclick="this.parentElement.parentElement.remove(); profileDataOpen = false;" style="position: absolute; top: 10px; right: 10px; background: none; border: none; color: white; font-size: 20px; cursor: pointer;">×</button>
+    `;
+
+    modal.addEventListener('scroll', (e) => e.stopPropagation());
+
+    const style = document.createElement('style');
+    style.textContent = `
+        .modal::-webkit-scrollbar {
+            display: none;
+        }
+    `;
+    document.head.appendChild(style);
+    modal.classList.add('modal');
+
+    overlay.onclick = (e) => {
+        if (e.target === overlay) {
+            overlay.remove();
+            profileDataOpen = false;
+        }
+    };
+
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+}
+
+/**
+ * Close "what is this" modal.
+ */
+function closeAboutPanel() {
+    document.getElementById('aboutPanel').classList.remove('visible');
+    cy.elements().removeClass('highlighted dimmed');
+}
+
+/**
+ * Open "what is this" modal.
+ */
+function openAboutPanel() {
+    if (aboutOpen) { return; }
+    aboutOpen = true;
+
+    const overlay = document.createElement('div');
+    overlay.className = 'modal';
+
+    const modal = document.createElement('div');
+    modal.className = 'modalText';
+
+    const style = document.createElement('style');
+    document.head.appendChild(style);
+    modal.classList.add('modal');
+
+    modal.innerHTML = `
+        <div style="white-space: pre-line">
+            <strong style="font-size: 26px">What Am I Looking At?</strong>\n
+            <div style="margin-bottom: 1px;">• This is a graph network based on the "me!" pages of osu! players.</div>
+            <div style="margin-bottom: 1px;">• If player "whitecat" mentions player "mrekk" in their page, an arrow is drawn between the two.</div>
+            <div style="margin-bottom: 1px;">• Player nodes are larger if more people mention them in their pages. Node color is based on rank.</div>
+        </div>
+        <div style="white-space: pre-line">
+            <strong style="font-size: 26px">A Few Notes</strong>\n
+            <div style="margin-bottom: 1px;">• Past usernames are taken into account. For example, if someone mentions "cookiezi" but their current username is "chocomint", the algorithm will correctly attribute 2 mentions to "chocomint".</div>
+            <div style="margin-bottom: 1px;">• Rename conflicts are resolved to the best of the algorithm's ability. For example, if "shigetora" renames to "cookiezi", the name "shigetora" can be taken by somebody else. In this case, mentions are attributed to the player with more followers.</div>
+            <div style="margin-bottom: 1px;">• Username reverts are unaccounted for. If "kurtis-" requests a username revert from osu! staff back to "Sour_Key", the name "kurtis-" gets erased from osu!'s side, and thus mentions to "kurtis-" won't be able to be considered.</div>
+            <div style="margin-bottom: 1px;">• Typos are not be accounted for. For example, if someone mentions "kurtis" on their page but the username is "kurtis-", a mention will not be tallied.</div>
+        </div>
+        <button onclick="this.parentElement.parentElement.remove(); aboutOpen = false;" style="position: absolute; top: 10px; right: 10px; background: none; border: none; color: white; font-size: 20px; cursor: pointer;">×</button>
+    `;
+
+    overlay.onclick = (e) => {
+        if (e.target === overlay) {
+            overlay.remove();
+            aboutOpen = false;
+        }
+    };
+
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+}
+
+/**
  * Node click event handler.
  */
 function handleNodeClick(nodeId) {
     const node = cy.$(`node[id = "${nodeId}"]`);
     const nodeData = node.data();
 
-    // Reset previous highlighting
-    cy.elements().removeClass('highlighted dimmed');
+    // Move viewport to selected node
+    cy.animate({
+        center: { eles: node },
+        duration: 500,
+        easing: 'ease-in-out'
+    });
 
-    // Highlight new selection
-    cy.elements().addClass('dimmed');
-    node.removeClass('dimmed');
-    node.connectedEdges().removeClass('dimmed').addClass('highlighted');
-    node.connectedEdges().connectedNodes().removeClass('dimmed');
+    // Reset previous highlighting and highlight new selection after animation completes
+    setTimeout(() => {
+        cy.elements().removeClass('highlighted dimmed');
+        cy.elements().addClass('dimmed');
+        node.removeClass('dimmed');
+        node.connectedEdges().removeClass('dimmed').addClass('highlighted');
+        node.connectedEdges().connectedNodes().removeClass('dimmed');
+    }, 500);
 
     // Update info panel
     openInfoPanel(nodeData);
 }
 
 /**
-* Highlight given node and open info panel.
-*/
-function selectNode(nodeId) {
-    const node = cy.$(`node[id = "${nodeId}"]`);
-    if (node.length) {
-        // Highlight the node and its connections
-        cy.elements().addClass('dimmed');
-        node.removeClass('dimmed');
-        const connectedEdges = node.connectedEdges();
-        const connectedNodes = connectedEdges.connectedNodes();
-        connectedEdges.removeClass('dimmed').addClass('highlighted');
-        connectedNodes.removeClass('dimmed');
-
-        // Open info panel
-        openInfoPanel(node.data());
-    }
+ * Mouse move handler for info panel resizing.
+ */
+function handleMouseMove(e) {
+    if (!isResizing) return;
+    const delta = startY - e.clientY;
+    const newHeight = Math.min(Math.max(startHeight + delta, 100), window.innerHeight * 0.8);
+    infoPanel.style.height = `${newHeight}px`;
 }
 
 /**
@@ -186,13 +293,15 @@ function createLegend(maxRank) {
 */
 async function loadAndDisplayGraph(gamemode) {
     try {
-        const start = performance.now();
-
         // Retrieve graph data
+        let start = performance.now();
         const response = await fetch(getJsonFilename(gamemode), {cache: 'no-store'});
         const graphData = await response.json();
+        let end = performance.now();
+        console.log(`Graph load took ${(end - start) / 1000} seconds.`);
 
         // Create legend
+        start = performance.now();
         const toggleButton = document.getElementById('toggle-button');
         const legend = document.getElementById('legend');
 
@@ -321,8 +430,8 @@ async function loadAndDisplayGraph(gamemode) {
         // Hide loading screen
         document.getElementById('loadingScreen').style.display = 'none';
 
-        const end = performance.now();
-        console.log(`Graph load took ${(end - start) / 1000} seconds.`);
+        end = performance.now();
+        console.log(`Graph generation took ${(end - start) / 1000} seconds.`);
 
     } catch (error) {
         console.error('Error loading or displaying graph: ', error);
@@ -360,7 +469,7 @@ function setupSearch() {
                 resultDiv.className = 'search-result';
                 resultDiv.textContent = `${node.data('label')} (#${node.data('rank')})`;
                 resultDiv.onclick = () => {
-                    selectNode(node.id());
+                    handleNodeClick(node.id());
                     searchResults.style.display = 'none';
                     searchInput.value = '';
                 };
@@ -463,6 +572,39 @@ function setupDownloadButton(gamemode) {
     });
 }
 
+/**
+ * Setup about button.
+ */
+function setupAboutButton() {
+    const aboutButton = document.getElementById('aboutButton');
+    aboutButton.addEventListener('mouseover', () => {
+        aboutButton.style.backgroundColor = '#333';
+    });
+
+    aboutButton.addEventListener('mouseout', () => {
+        aboutButton.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
+    });
+
+    aboutButton.addEventListener('click', openAboutPanel);
+}
+
+/**
+ * Setup info panel resize handle.
+ */
+function setupInfoPanelResizeHandle() {
+    document.getElementById('infoPanelResizeHandle').addEventListener('mousedown', (e) => {
+        isResizing = true;
+        startY = e.clientY;
+        startHeight = parseInt(getComputedStyle(infoPanel).height);
+    
+        document.addEventListener('mousemove', handleMouseMove);
+        document.addEventListener('mouseup', () => {
+            isResizing = false;
+            document.removeEventListener('mousemove', handleMouseMove);
+        });
+    });
+}
+
 //\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\
 //\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\//\\
 
@@ -478,4 +620,6 @@ document.addEventListener('DOMContentLoaded', () => {
     setupGamemodeDropdown();
     setupSourceButton();
     setupDownloadButton(gamemode);
+    setupAboutButton();
+    setupInfoPanelResizeHandle();
 });

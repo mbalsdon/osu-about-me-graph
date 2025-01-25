@@ -16,14 +16,15 @@ def get_ignored_usernames(ignore_usernames_filename: str) -> list[str]:
         return ignored_usernames
 
 
-def save_to_json(mentions_graph: classes.DirectedGraph, current_to_rank: dict, json_out_filename: str) -> None:
+def save_to_json(mentions_graph: classes.DirectedGraph, current_to_rank: dict, current_to_about_me: dict, json_out_filename: str) -> None:
     nodes = []
     for username, rank in current_to_rank.items():
         nodes.append({
             "data": {
                 "id": username,
                 "label": username,
-                "rank": rank
+                "rank": rank,
+                "about_me": current_to_about_me[username]
             }
         })
 
@@ -65,6 +66,7 @@ def parse_users(
     print(f"\n--- Parsing data for {len(users)} users...")
     alias_to_current = {}
     current_to_rank = {}
+    current_to_about_me = {}
     mentions_graph = classes.DirectedGraph()
     username_trie = classes.Trie()
 
@@ -90,6 +92,7 @@ def parse_users(
                 alias_to_current[previous_username] = current_username
 
         current_to_rank[current_username] = user["global_rank"]
+        current_to_about_me[current_username] = user["about_me"]
 
         if current_username in ignored_usernames:
             ignored_username_hits += 1
@@ -127,7 +130,7 @@ def parse_users(
 
     if save_json:
         print(f"JSON flag was set; saving to {json_filename}...")
-        save_to_json(mentions_graph, current_to_rank, json_filename)
+        save_to_json(mentions_graph, current_to_rank, current_to_about_me, json_filename)
 
     return mentions_graph, current_to_rank
 

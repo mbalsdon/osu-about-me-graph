@@ -174,11 +174,20 @@
         }
 
         /* INFO PANEL */
+        #infoPanelResizeHandle {
+            position: absolute;
+            top: -5px;
+            left: 0;
+            right: 0;
+            height: 10px;
+            cursor: ns-resize;
+        }
+
         #infoPanel {
             background-color: rgba(0, 0, 0, 0.95);
             color: white;
             font-family: Arial, sans-serif;
-            padding: 20px;
+            padding: 20px 20px 0px;
             border-top: 1px solid #333;
             position: fixed;
             bottom: 0;
@@ -188,6 +197,8 @@
             transform: translateY(100%);
             transition: transform 0.3s ease-out;
             z-index: 1001;
+            min-height: 5vh;
+            max-height: 80vh;
         }
         #infoPanel.visible {
             transform: translateY(0);
@@ -215,10 +226,9 @@
             display: none;
         }
 
-        /* DOWNLOAD BUTTON */
-        #downloadButton {
+        /* BUTTONS */
+        .button {
             position: fixed;
-            bottom: 20px;
             right: 270px;
             background-color: rgba(0, 0, 0, 0.8);
             padding: 10px 15px;
@@ -231,28 +241,37 @@
             transition: transform 0.3s ease;
         }
 
-        #legend:not(.open) ~ #downloadButton {
+        #legend:not(.open) ~ .button {
             transform: translateX(250px);
         }
 
-        /* SOURCE CODE BUTTON */
-        #sourceButton {
+        /* MODALS */
+        .modal {
             position: fixed;
-            bottom: 70px;
-            right: 270px;
-            background-color: rgba(0, 0, 0, 0.8);
-            padding: 10px 15px;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1999;
+        }
+
+        .modalText {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.95);
+            padding: 10px 20px 20px;
             border-radius: 5px;
             border: 1px solid #333;
             color: white;
-            font-family: Arial, sans-serif;
-            z-index: 1000;
-            cursor: pointer;
-            transition: transform 0.3s ease;
-        }
-
-        #legend:not(.open) ~ #sourceButton {
-            transform: translateX(250px);
+            z-index: 2000;
+            width: 95%;
+            height: 85%;
+            overflow-y: auto;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
         }
     </style>
 </head>
@@ -280,14 +299,16 @@
     </div>
     <div id="cy"></div>
     <div id="infoPanel">
+        <div id="infoPanelResizeHandle"></div>
         <button class="close-button" onclick="closeInfoPanel()">x</button>
         <div id="infoPanelContent">
             <h2 id="infoTitle">Node Details</h2>
             <p id="infoContent">Select a node to see its details.</p>
         </div>
     </div>
-    <div id="sourceButton">Source Code</div>
-    <div id="downloadButton">Download Graph Data</div>
+    <div class="button" id="sourceButton" style="bottom: 120px">Source Code</div>
+    <div class="button" id="downloadButton" style="bottom: 70px">Download Graph Data</div>
+    <div class="button" id="aboutButton" style="bottom: 20px">What Am I Looking At?</div>
 
     <script src="user_network.js"></script>
 </body>
