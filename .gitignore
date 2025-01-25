@@ -167,5 +167,4 @@ cython_debug/
 /*.md
 
 graph_data*.json
-static_graph_data*.json
 !README.md
