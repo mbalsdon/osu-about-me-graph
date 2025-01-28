@@ -4,31 +4,29 @@ A command-line tool for generating graph networks based on the "About Me" pages 
 
 ![](media/example-500.png)
 
-## Getting Started
+## Installation and Usage
 To pull data from the osu!API, you will need a registered [osu! OAuth client](https://osu.ppy.sh/home/account/edit). Click **'New OAuth Application +'**, then enter a name and hit **'Register application'**. Take note of your client ID and secret.
 
-1. Navigate to the project root directory and setup environment variables:
+1. Set up environment variables:
     - Bash:
         - `printf "OSU_API_CLIENT_ID=[your client ID]\nOSU_API_CLIENT_SECRET=[your client secret]" > .env`
     - PowerShell:
         - ``Set-Content -Path .env -Value "OSU_API_CLIENT_ID=[your client ID]`nOSU_API_CLIENT_SECRET=[your client secret]" -Encoding utf8``
 
-2. (Optional) Set up virtual environment:
+2. (Optional) Set up a virtual environment:
     - Bash:
-        - `python -m venv venv`
-        - `source venv/bin/activate`
+        - `python -m venv venv && source venv/bin/activate`
     - PowerShell:
-        - `python -m venv venv`
-        - `./venv/Scripts/Activate`
+        - `python -m venv venv; .\venv\Scripts\Activate`
 
 3. Install dependencies:
-    - `pip install ossapi networkx matplotlib asyncio aiohttp python-dotenv scipy numpy pillow`
+    - `pip install -e [path to project root directory]`
 
-To use the tool, run `python src/main.py`. This will generate a PNG image of the graph. To see customization flags, run `python src/main.py -h`.
+To use the tool, run `osu_mentions`. This will generate a PNG image of the graph. To see customization flags, run `osu_mentions -h`.
 
 #### Interactive HTML/JS Graph
 To generate and view an interactive HTML/JS version:
-- Run `python src/main.py --save-json --no-graph --gamemode=<gamemode> [additional extra flags...]`
+- Run `osu_mentions --save-json --no-graph --gamemode=<gamemode> [additional extra flags...]`
 - Start a local development server (e.g. `npx http-server` or `python -m http.server`)
 - Open `localhost:<port>/html/user_network.html?mode=<gamemode>` in a browser
 
@@ -42,7 +40,7 @@ The downloaded file contains position info for each node, so that the graph does
 If you want the gamemode selection dropdown menu to work, you will have to populate additional JSON files. You can do this by repeating the steps above for other gamemodes.
 
 ## Features
-For a list of all customization flags, run `python src/main.py -h`.
+For a list of all customization flags, run `osu_mentions -h`.
 - Gamemode selection (osu, taiko, mania, catch) and user rank selection (i.e. build a graph for users ranked #324 - #727)
 - Rich customization support for graph generation including:
     - Rank-range selection, clustering strength, and connection strength (i.e. build a graph where users with ranks #1-#100, #101-#200, etc. are tightly packed in clusters).

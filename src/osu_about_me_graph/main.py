@@ -1,8 +1,8 @@
-import args
-from generate_graph import generate_graph
-from parse_users import parse_users
-from report_false_positives import report_false_positives
-from scrape_users import scrape_users
+from . import args
+from .generate_graph import generate_graph
+from .parse_users import parse_users
+from .report_false_positives import report_false_positives
+from .scrape_users import scrape_users
 
 import asyncio
 import dotenv
@@ -10,7 +10,6 @@ import dotenv
 import gc
 import io
 import logging
-import os
 import time
 import typing
 
@@ -40,9 +39,6 @@ def sync_timer(func: typing.Callable[..., typing.Any], *args: typing.Any, **kwar
 
 async def main() -> None:
     args.parse_arguments()
-    os.chdir(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-    with io.open('.env', 'r', encoding='utf-8-sig') as f:
-        dotenv.load_dotenv(stream=f)
 
     save_json = args.ARGS.save_json
     big_nodes_closer = args.ARGS.big_nodes_closer
@@ -56,6 +52,7 @@ async def main() -> None:
     dpi = args.ARGS.dpi
     edge_curvature = args.ARGS.edge_curvature
     edge_width = args.ARGS.edge_width
+    env_path = args.ARGS.env_path
     fp_max_followers = args.ARGS.fp_max_followers
     fp_mentions_top_percentile = args.ARGS.fp_mentions_top_percentile
     gamemode = args.ARGS.gamemode
@@ -78,6 +75,10 @@ async def main() -> None:
     ignore_usernames_filename = "ignore_usernames.csv"
     image_filename = "user_network.png"
     json_filename = "html/graph_data_" + gamemode.value + ".json"
+
+    # Load environment variables
+    with io.open(env_path, "r", encoding="utf-8-sig") as f:
+        dotenv.load_dotenv(stream=f)
 
     # Set log level
     if verbose:
@@ -173,9 +174,3 @@ if __name__ == "__main__":
 
 #################################################################################################################################################
 #################################################################################################################################################
-
-# TODO
-### executable instead of python src/main.py ?
-##### can it install and everything
-##### test w/ fresh
-##### update readme

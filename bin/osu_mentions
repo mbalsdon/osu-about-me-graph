@@ -1,0 +1,7 @@
+#!/usr/bin/env python3
+
+from src.osu_about_me_graph.main import main
+import asyncio
+
+if __name__ == "__main__":
+    asyncio.run(main())
