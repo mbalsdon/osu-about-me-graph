@@ -1,8 +1,8 @@
-import args
-from generate_graph import generate_graph
-from parse_users import parse_users
-from report_false_positives import report_false_positives
-from scrape_users import scrape_users
+from . import args
+from .generate_graph import generate_graph
+from .parse_users import parse_users
+from .report_false_positives import report_false_positives
+from .scrape_users import scrape_users
 
 import asyncio
 import dotenv
@@ -10,9 +10,9 @@ import dotenv
 import gc
 import io
 import logging
-import os
 import time
 import typing
+import pathlib
 
 logger = logging.getLogger("osu-about-me-graph")
 handler = logging.StreamHandler()
@@ -40,8 +40,14 @@ def sync_timer(func: typing.Callable[..., typing.Any], *args: typing.Any, **kwar
 
 async def main() -> None:
     args.parse_arguments()
-    os.chdir(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-    with io.open('.env', 'r', encoding='utf-8-sig') as f:
+
+    working_dir = pathlib.Path.cwd()
+    env_path = working_dir / ".env"
+    if not env_path.exists():
+        print("Couldn't find .env file! Make sure it is in your current directory.")
+        return
+
+    with io.open(env_path, "r", encoding="utf-8-sig") as f:
         dotenv.load_dotenv(stream=f)
 
     save_json = args.ARGS.save_json
@@ -175,7 +181,8 @@ if __name__ == "__main__":
 #################################################################################################################################################
 
 # TODO
-### executable instead of python src/main.py ?
-##### can it install and everything
-##### test w/ fresh
-##### update readme
+### executable
+##### update README (venv stuff  ->  pip install -e .  ->  osu_mentions <flags>)
+### .env stuff
+##### arg for location/filename (should be able to be whatever) ; default cwd/.env
+##### if can't find in cwd, ask if user wants to make one, prompt, etc.

@@ -1,4 +1,4 @@
-import classes
+from . import classes
 
 import aiohttp
 import asyncio
