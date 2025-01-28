@@ -1,4 +1,4 @@
-import classes
+from . import classes
 
 import random
 
@@ -74,7 +74,7 @@ def report_false_positives(
         f"* Have at most {max_followers} followers",
         "",
         "You can tweak these values and re-generate this report by running with additional flags, e.g.",
-        "`python3 src/main.py --fp-max-followers 727 --fp-mentions-top-percentile 72.7 --use-last-run --no-graph`",
+        "`osu_mentions --fp-max-followers 727 --fp-mentions-top-percentile 72.7 --use-last-run --no-graph`",
         "",
         "For each \"suspicious\" username, we also provide some random examples of how their name is being used on other profiles. This should ideally help you decide whether the username is being used as a mention or as a word.",
         "",

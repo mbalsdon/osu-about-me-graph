@@ -1,6 +1,7 @@
 import ossapi
 
 import argparse
+import os
 
 ARGS = None
 
@@ -86,6 +87,13 @@ def parse_arguments() -> None:
         "--edge-width",
         help="width of edges in the graph [int > 0]",
         type=int,
+        required=False
+    )
+
+    parser.add_argument(
+        "--env-path",
+        help="path to environment variables file [filepath string]",
+        type=str,
         required=False
     )
 
@@ -221,6 +229,9 @@ def parse_arguments() -> None:
     if ARGS.edge_width is None:
         ARGS.edge_width = 2
 
+    if ARGS.env_path is None:
+        ARGS.env_path = os.path.join(os.getcwd(), ".env")
+
     if ARGS.fp_max_followers is None:
         ARGS.fp_max_followers = 1000
 
@@ -277,91 +288,98 @@ def parse_arguments() -> None:
 
     # Validate inputs
     do_exit = False
+    error_messages = ""
     if ARGS.arrow_size <= 0:
-        print("Arrow size must be greater than zero!")
+        error_messages += "Arrow size must be greater than zero!\n"
         do_exit = True
 
     if ARGS.dpi <= 0:
-        print("DPI must be greater than zero!")
+        error_messages += "DPI must be greater than zero!\n"
         do_exit = True
 
     if ARGS.edge_curvature < 0:
-        print("Edge curvature must be greater than or equal to zero!")
+        error_messages += "Edge curvature must be greater than or equal to zero!\n"
         do_exit = True
 
     if ARGS.edge_width <= 0:
-        print("Edge width must be greater than zero!")
+        error_messages += "Edge width must be greater than zero!\n"
+        do_exit = True
+
+    if not os.path.exists(ARGS.env_path):
+        error_messages += f"Could not find environment variable file at '{ARGS.env_path}'! You can specify its location with the --env-path flag.\n"
         do_exit = True
 
     if ARGS.fp_max_followers < 0:
-        print("FP max followers must be greater than or equal to zero!")
+        error_messages += "FP max followers must be greater than or equal to zero!\n"
         do_exit = True
 
     if ARGS.fp_mentions_top_percentile < 0 or ARGS.fp_mentions_top_percentile > 100:
-        print("FP mentions top percentile must be within [0, 100]!")
+        error_messages += "FP mentions top percentile must be within [0, 100]!\n"
         do_exit = True
 
     if ARGS.gamemode not in ["osu", "taiko", "mania", "catch"]:
-        print("Gamemode must be one of osu, taiko, mania, or catch!")
+        error_messages += "Gamemode must be one of osu, taiko, mania, or catch!\n"
         do_exit = True
 
     if ARGS.image_width <= 0:
-        print("Image width must be greater than zero!")
+        error_messages += "Image width must be greater than zero!\n"
         do_exit = True
 
     if ARGS.iterations <= 0:
-        print("Iterations must be greater than zero!")
+        error_messages += "Iterations must be greater than zero!\n"
         do_exit = True
 
     if ARGS.legend_font_size <= 0:
-        print("Legend font size must be greater than zero!")
+        error_messages += "Legend font size must be greater than zero!\n"
         do_exit = True
 
     if ARGS.max_label_size <= 0:
-        print("Maximum node label font size must be greater than zero!")
+        error_messages += "Maximum node label font size must be greater than zero!\n"
         do_exit = True
 
     if ARGS.max_label_size < ARGS.min_label_size:
-        print("Maximum node label font size must be greater than or equal to minimum label font size!")
+        error_messages += "Maximum node label font size must be greater than or equal to minimum label font size!\n"
         do_exit = True
 
     if ARGS.min_label_size <= 0:
-        print("Minimum node label font size must be greater than zero!")
+        error_messages += "Minimum node label font size must be greater than zero!\n"
         do_exit = True
 
     if ARGS.max_node_diameter <= 0:
-        print("Maximum node diameter must be greater than zero!")
+        error_messages += "Maximum node diameter must be greater than zero!\n"
         do_exit = True
 
     if ARGS.max_node_diameter < ARGS.min_node_diameter:
-        print("Maximum node diameter must be greater than or equal to minimum node diameter!")
+        error_messages += "Maximum node diameter must be greater than or equal to minimum node diameter!\n"
         do_exit = True
 
     if ARGS.min_node_diameter <= 0:
-        print("Minimum node diameter must be greater than zero!")
+        error_messages += "Minimum node diameter must be greater than zero!\n"
         do_exit = True
 
     if ARGS.num_users < 1 or ARGS.num_users > 10000:
-        print("Number of users must be within [1, 10000]!")
+        error_messages += "Number of users must be within [1, 10000]!\n"
         do_exit = True  
 
     if ARGS.start_rank < 1 or ARGS.start_rank > 10000:
-        print("Start rank must be within [1, 10000]!")
+        error_messages += "Start rank must be within [1, 10000]!\n"
         do_exit = True
 
     if ARGS.start_rank + ARGS.num_users - 1 > 10000:
-        print(f"Cannot pull users past rank 10000! Start rank = {ARGS.start_rank}, number of users = {ARGS.num_users}...")
+        error_messages += f"Cannot pull users past rank 10000! Start rank = {ARGS.start_rank}, number of users = {ARGS.num_users}...\n"
         do_exit = True
 
     if ARGS.rank_range_size <= 0:
-        print("Rank range size must be greater than zero!")
+        error_messages += "Rank range size must be greater than zero!\n"
         do_exit = True
 
     if ARGS.rank_range_connection_strength < 0 or ARGS.rank_range_connection_strength > 1:
-        print("Rank range connection strength must be within [0, 1]!")
+        error_messages += "Rank range connection strength must be within [0, 1]!\n"
         do_exit = True
 
     if do_exit:
+        print("--- Please address the following errors before running again:")
+        print(error_messages)
         print("Exiting...")
         exit(1)
 
