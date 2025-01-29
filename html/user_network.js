@@ -94,10 +94,10 @@ function openInfoPanel(nodeData) {
     currOutgoers = node.outgoers().nodes().map(n => `${n.id()}`);
 
     document.getElementById('infoTitle').innerHTML = `
-        <a href="#" onclick="handleNodeClick('${nodeData.id}'); return false;" style="color: #00aaff; text-decoration: none;" onmouseover="this.style.color='#0088ff'" onmouseout="this.style.color='#00aaff'">
+        <a href="#" onclick="handleNodeClick('${nodeData.id}'); return false;" class="href" onmouseover="this.style.color='#0088ff'" onmouseout="this.style.color='#00aaff'">
             ${nodeData.label}
         </a> (#${nodeData.rank})
-        <div onclick="openProfileData('${nodeData.id}', \`${encodeURIComponent(nodeData.about_me)}\`);" style="font-size: 10px; color: #0099ff; margin-top: 4px; font-weight: normal; cursor: pointer;" onmouseover="this.style.color='#0077ff'" onmouseout="this.style.color='#0099ff'">View raw profile data</div>
+        <div onclick="openProfileData('${nodeData.id}', \`${encodeURIComponent(nodeData.about_me)}\`);" style="cursor: pointer; font-size: 10px; color: #0099ff; margin-top: 4px; font-weight: normal;" onmouseover="this.style.color='#0077ff'" onmouseout="this.style.color='#0099ff'">View raw profile data</div>
         <hr></hr>
     `.trim();
 
@@ -181,7 +181,7 @@ function closeAboutPanel() {
 /**
  * Open "what is this" modal.
  */
-function openAboutPanel() {
+function openAboutPanel(numUsers) {
     if (aboutOpen) { return; }
     aboutOpen = true;
 
@@ -204,10 +204,13 @@ function openAboutPanel() {
         </div>
         <div style="white-space: pre-line">
             <strong style="font-size: 26px">A Few Notes</strong>\n
+            <div style="margin-bottom: 1px;">• Some usernames have been filtered out because they trigger false-positives. For example, mentions may incorrectly be attributed to the player "wooting" if a player lists "wooting" in the keyboard specs on their page. You can see ignored usernames <a href="./ignore_usernames.txt" target="_blank" class="href" onmouseover="this.style.color='#0088ff'" onmouseout="this.style.color='#00aaff'">here</a>.</div>
             <div style="margin-bottom: 1px;">• Past usernames are taken into account. For example, if someone mentions "cookiezi" but their current username is "chocomint", the algorithm will correctly attribute 2 mentions to "chocomint".</div>
             <div style="margin-bottom: 1px;">• Rename conflicts are resolved to the best of the algorithm's ability. For example, if "shigetora" renames to "cookiezi", the name "shigetora" can be taken by somebody else. In this case, mentions are attributed to the player with more followers.</div>
             <div style="margin-bottom: 1px;">• Username reverts are unaccounted for. If "kurtis-" requests a username revert from osu! staff back to "Sour_Key", the name "kurtis-" gets erased from osu!'s side, and thus mentions to "kurtis-" won't be able to be considered.</div>
             <div style="margin-bottom: 1px;">• Typos are not be accounted for. For example, if someone mentions "kurtis" on their page but the username is "kurtis-", a mention will not be tallied.</div>
+            <div style="margin-bottom: 1px;">• Mentions from users past rank #${numUsers} are not counted. That is, if a user "spreadnuts" ranked #${numUsers + 500} mentions a user "igibob" ranked #${numUsers - 25}, it will not be counted here.</div>
+            <div style="margin-bottom: 1px;">• This data was collected on YYYY-MM-DD.</div>
         </div>
         <button onclick="this.parentElement.parentElement.remove(); aboutOpen = false;" style="position: absolute; top: 10px; right: 10px; background: none; border: none; color: white; font-size: 20px; cursor: pointer;">×</button>
     `;
@@ -303,6 +306,7 @@ function populateSidebarUsers() {
     for (const [i, node] of Array.from(sortedNodes).entries()) {
         const legendItem = document.createElement('div');
         legendItem.className = 'legend-item';
+        legendItem.style.fontSize = '14px';
 
         legendItem.innerHTML = `
             ${i+1}.&nbsp<a href="#" onclick="handleNodeClick('${node.id()}'); return false;" class="href" onmouseover="this.style.color='#0088ff'" onmouseout="this.style.color='#00aaff'">
@@ -459,6 +463,7 @@ async function loadAndDisplayGraph(gamemode) {
         // Populate sidebar users once graph is done
         cy.ready(() => {
             populateSidebarUsers();
+            setupAboutButton(numUsers);
         });
 
         // Hide loading screen
@@ -609,7 +614,7 @@ function setupDownloadButton(gamemode) {
 /**
  * Setup about button.
  */
-function setupAboutButton() {
+function setupAboutButton(numUsers) {
     const aboutButton = document.getElementById('aboutButton');
     aboutButton.addEventListener('mouseover', () => {
         aboutButton.style.backgroundColor = '#333';
@@ -619,7 +624,7 @@ function setupAboutButton() {
         aboutButton.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
     });
 
-    aboutButton.addEventListener('click', openAboutPanel);
+    aboutButton.addEventListener('click', () => { openAboutPanel(numUsers); });
 }
 
 /**
@@ -654,6 +659,5 @@ document.addEventListener('DOMContentLoaded', () => {
     setupGamemodeDropdown();
     setupSourceButton();
     setupDownloadButton(gamemode);
-    setupAboutButton();
     setupInfoPanelResizeHandle();
 });

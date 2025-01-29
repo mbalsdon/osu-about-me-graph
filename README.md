@@ -49,7 +49,7 @@ For a list of all customization flags, run `osu_mentions -h`.
 - Supports savefiles, so that you don't have to re-pull from the API on every run.
 - Takes all previous usernames into account; i.e. if players reference 'ryuk' in their profile but he renames to 'connor mcdavid', mentions will still be tallied.
 - Automatically resolves rename conflicts; i.e. if players reference 'shigetora' in their profile but he renames to 'chocomint' and someone else takes the name 'shigetora', mentions will be correctly attributed to 'chocomint'.
-- Generates a configurable 'possible false-positives report' which demarcates usernames that may incorrectly be receiving mention tallies because of their common use in profile pages ('hello', 'wooting', 'hddt', etc.). These usernames can then subsequently be ignored by their addition to a CSV file.
+- Generates a configurable 'possible false-positives report' which demarcates usernames that may incorrectly be receiving mention tallies because of their common use in profile pages ('hello', 'wooting', 'hddt', etc.). These usernames can then subsequently be ignored by their addition to a TXT file.
 - PNG format (using networkX) and interactive HTML/JS format (using cytoscape.js)
 
 ## Contributing

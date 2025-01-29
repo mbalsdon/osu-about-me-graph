@@ -72,7 +72,7 @@ async def main() -> None:
 
     save_filename = "users.pkl"
     report_filename = "false_positives.md"
-    ignore_usernames_filename = "ignore_usernames.csv"
+    ignore_usernames_filename = "ignore_usernames.txt"
     image_filename = "user_network.png"
     json_filename = "html/graph_data_" + gamemode.value + ".json"
 

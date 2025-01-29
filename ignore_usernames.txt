@@ -265,9 +265,11 @@ yousei
 raise my sword
 breath
 bomb
+len
+fast
 
 ############## AMBIGUOUS NAMES ##################################################################################################
-### (Popular players that are also used as common words (or parts of them). You can ignore these players by adding them to the list above.)
+### Popular players that are also used as common words (or parts of them). They are not ignored here by default.
 ### - plasma
 ### - toy
 ### - creator

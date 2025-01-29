@@ -61,7 +61,7 @@ def parse_users(
         * Undirected graph, where an edge exists between player A and B iff player A mentions player B.
         * Map from (current) username to number of mentions by other players.
         * Map from (current) username to global rank.
-    Usernames found in specified csv file will not contribute to mention data for the associated user.
+    Usernames found in specified txt file will not contribute to mention data for the associated user.
     """
     print(f"\n--- Parsing data for {len(users)} users...")
     alias_to_current = {}
