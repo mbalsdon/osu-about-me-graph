@@ -78,20 +78,12 @@
         #legend.open {
             transform: translateX(0);
         }
-
         #legend-content {
             padding: 15px;
             height: 100%;
             overflow-y: auto;
             padding-bottom: 10px;
             box-sizing: border-box;
-            overflow-y: auto;
-            -webkit-overflow-scrolling: touch;
-            -ms-overflow-style: none;
-            scrollbar-width: none;
-        }
-        #legend-content::-webkit-scrollbar {
-            display: none;
         }
         .legend-item {
             display: flex;
@@ -105,7 +97,6 @@
             border: 1px solid #333;
             border-radius: 3px;
         }
-
         #toggle-button {
             position: absolute;
             left: 0;
@@ -119,6 +110,10 @@
             border-radius: 8px 0 0 8px;
             font-size: 20px;
         }
+        .legend-header {
+            margin-bottom: 10px;
+            font-weight: bold;
+        }
 
         /* SEARCH BAR */
         #searchContainer {
@@ -131,7 +126,6 @@
             border-radius: 5px;
             border: 1px solid #333;
         }
-
         #searchInput {
             background-color: #222;
             color: white;
@@ -149,7 +143,6 @@
             outline: none;
             border-color: #666;
         }
-
         #searchResults {
             position: absolute;
             top: 100%;
@@ -182,7 +175,6 @@
             height: 10px;
             cursor: ns-resize;
         }
-
         #infoPanel {
             background-color: rgba(0, 0, 0, 0.95);
             color: white;
@@ -213,7 +205,6 @@
             font-size: 20px;
             cursor: pointer;
         }
-
         #infoPanelContent {
             margin-right: 30px;
             max-height: 100%;
@@ -240,7 +231,6 @@
             cursor: pointer;
             transition: transform 0.3s ease;
         }
-
         #legend:not(.open) ~ .button {
             transform: translateX(250px);
         }
@@ -255,7 +245,6 @@
             background: rgba(0, 0, 0, 0.5);
             z-index: 1999;
         }
-
         .modalText {
             position: fixed;
             top: 50%;
@@ -272,6 +261,12 @@
             overflow-y: auto;
             scrollbar-width: none;
             -ms-overflow-style: none;
+        }
+
+        /* MISC */
+        .href {
+            color: #00aaff;
+            text-decoration: none;
         }
     </style>
 </head>
@@ -294,7 +289,13 @@
                 </select>
             </div>
             <div class="separator"></div>
-            <div style="margin-bottom: 10px; font-weight: bold;">Ranks</div>
+            <div id="legend-ranks">
+                <div class="legend-header">Ranks</div>
+            </div>
+            <div class="separator"></div>
+            <div id="legend-mentions-sorted">
+                <div class="legend-header">Mentions</div>
+            </div>
         </div>
     </div>
     <div id="cy"></div>
