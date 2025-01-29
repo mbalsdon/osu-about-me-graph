@@ -9,15 +9,15 @@
  */
 const USE_STATIC_GRAPH_DATA = false;
 const GRAPH_DATA_FILENAMES = {
-    nonstatic_osu   : "graph_data_osu.json",
-    nonstatic_taiko : "graph_data_taiko.json",
-    nonstatic_mania : "graph_data_mania.json",
-    nonstatic_fruits : "graph_data_fruits.json",
+    nonstatic_osu    : 'graph_data_osu.json',
+    nonstatic_taiko  : 'graph_data_taiko.json',
+    nonstatic_mania  : 'graph_data_mania.json',
+    nonstatic_fruits : 'graph_data_fruits.json',
 
-    static_osu   : "static_graph_data_osu.json",
-    static_taiko : "static_graph_data_taiko.json",
-    static_mania : "static_graph_data_mania.json",
-    static_fruits : "static_graph_data_fruits.json",
+    static_osu    : 'static_graph_data_osu.json',
+    static_taiko  : 'static_graph_data_taiko.json',
+    static_mania  : 'static_graph_data_mania.json',
+    static_fruits : 'static_graph_data_fruits.json',
 };
 const GAMEMODES = ['osu', 'taiko', 'mania', 'fruits'];
 const RANK_RANGE_SIZE = 100;
@@ -76,14 +76,16 @@ function rankToColor(rank, numUsers) {
 */
 function openInfoPanel(nodeData) {
     const node = cy.$(`node[id = "${nodeData.id}"]`);
-    const incomingNodes = node.incomers().nodes().map(n =>
-        `• <a href="#" onclick="handleNodeClick('${n.id()}'); return false;" style="color: #00aaff; text-decoration: none;" onmouseover="this.style.color='#0088ff'" onmouseout="this.style.color='#00aaff'">
+    const incomingNodes = node.incomers().nodes();
+    const incomingNodesHTML = incomingNodes.map(n =>
+        `• <a href="#" onclick="handleNodeClick('${n.id()}'); return false;" class="href" onmouseover="this.style.color='#0088ff'" onmouseout="this.style.color='#00aaff'">
             ${n.data('label')}
         </a> (#${n.data('rank')})`
     ).join('<br>');
 
-    const outgoingNodes = node.outgoers().nodes().map(n =>
-        `• <a href="#" onclick="handleNodeClick('${n.id()}'); return false;" style="color: #00aaff; text-decoration: none;" onmouseover="this.style.color='#0088ff'" onmouseout="this.style.color='#00aaff'">
+    const outgoingNodes = node.outgoers().nodes();
+    const outgoingNodesHTML = outgoingNodes.map(n =>
+        `• <a href="#" onclick="handleNodeClick('${n.id()}'); return false;" class="href" onmouseover="this.style.color='#0088ff'" onmouseout="this.style.color='#00aaff'">
             ${n.data('label')}
         </a> (#${n.data('rank')})`
     ).join('<br>');
@@ -100,11 +102,11 @@ function openInfoPanel(nodeData) {
     `.trim();
 
     document.getElementById('infoContent').innerHTML = `
-        <strong>Mentions:</strong><br>
-        ${outgoingNodes || 'None'}<br>
+        <strong>Mentions (${outgoingNodes.length} players):</strong><br>
+        ${outgoingNodesHTML || 'None'}<br>
         <br>
-        <strong>Mentioned by:</strong><br>
-        ${incomingNodes || 'None'}
+        <strong>Mentioned by (${incomingNodes.length} players):</strong><br>
+        ${incomingNodesHTML || 'None'}
     `.trim();
 
     document.getElementById('legend').classList.remove('open');
@@ -262,7 +264,7 @@ function handleMouseMove(e) {
 * Generate legend, rows contain color patch and associated rank range.
 */
 function createLegend(maxRank) {
-    const legendContent = document.getElementById('legend-content');
+    const legendRanks = document.getElementById('legend-ranks');
     const numRanges = Math.ceil(maxRank / RANK_RANGE_SIZE);
 
     for (let i = 0; i < numRanges; i++) {
@@ -281,7 +283,34 @@ function createLegend(maxRank) {
 
         legendItem.appendChild(colorPatch);
         legendItem.appendChild(label);
-        legendContent.appendChild(legendItem);
+        legendRanks.appendChild(legendItem);
+    }
+}
+
+/**
+ * Sort users by mentions and place them in the legend.
+ */
+function populateSidebarUsers() {
+    const legendMentionsSorted = document.getElementById('legend-mentions-sorted');
+
+    const sortedNodes = cy.nodes().sort((a, b) => {
+        const incomersA = a.incomers().nodes().length;
+        const incomersB = b.incomers().nodes().length;
+        if (incomersB !== incomersA) { return incomersB - incomersA; }
+        return a.id().localeCompare(b.id());
+    });
+
+    for (const [i, node] of Array.from(sortedNodes).entries()) {
+        const legendItem = document.createElement('div');
+        legendItem.className = 'legend-item';
+
+        legendItem.innerHTML = `
+            ${i+1}.&nbsp<a href="#" onclick="handleNodeClick('${node.id()}'); return false;" class="href" onmouseover="this.style.color='#0088ff'" onmouseout="this.style.color='#00aaff'">
+                ${node.id()}
+            </a>&nbsp(${node.incomers().nodes().length} mentions)
+            <br>`;
+
+        legendMentionsSorted.appendChild(legendItem);
     }
 }
 
@@ -425,6 +454,11 @@ async function loadAndDisplayGraph(gamemode) {
             if (evt.target === cy) {
                 closeInfoPanel();
             }
+        });
+
+        // Populate sidebar users once graph is done
+        cy.ready(() => {
+            populateSidebarUsers();
         });
 
         // Hide loading screen
