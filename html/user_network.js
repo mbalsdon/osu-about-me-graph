@@ -303,6 +303,7 @@ function populateSidebarUsers() {
     for (const [i, node] of Array.from(sortedNodes).entries()) {
         const legendItem = document.createElement('div');
         legendItem.className = 'legend-item';
+        legendItem.style.fontSize = '14px';
 
         legendItem.innerHTML = `
             ${i+1}.&nbsp<a href="#" onclick="handleNodeClick('${node.id()}'); return false;" class="href" onmouseover="this.style.color='#0088ff'" onmouseout="this.style.color='#00aaff'">
