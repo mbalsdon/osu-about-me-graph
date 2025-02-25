@@ -13,18 +13,21 @@ def get_ignored_usernames(ignore_usernames_filename: str) -> list[str]:
 
     with open(ignore_usernames_filename, "r") as f:
         ignored_usernames = [line.strip().lower() for line in f]
+        ignored_usernames = [s for s in ignored_usernames if s and not s.startswith("###")]
         return ignored_usernames
 
 
-def save_to_json(mentions_graph: classes.DirectedGraph, current_to_rank: dict, current_to_about_me: dict, json_out_filename: str) -> None:
+def save_to_json(mentions_graph: classes.DirectedGraph, users: list[dict], ignored_usernames: list[str], json_out_filename: str) -> None:
     nodes = []
-    for username, rank in current_to_rank.items():
+    for user in users:
         nodes.append({
             "data": {
-                "id": username,
-                "label": username,
-                "rank": rank,
-                "about_me": current_to_about_me[username]
+                "id": user["current_username"],
+                "label": user["current_username"],
+                "user_id": user["user_id"],
+                "previous_usernames": user["previous_usernames"],
+                "rank": user["global_rank"],
+                "about_me": user["about_me"]
             }
         })
 
@@ -41,7 +44,8 @@ def save_to_json(mentions_graph: classes.DirectedGraph, current_to_rank: dict, c
 
     data = {
         "nodes": nodes,
-        "edges": edges
+        "edges": edges,
+        "ignored": ignored_usernames
     }
 
     with open(json_out_filename, "w", encoding="utf-8") as f:
@@ -59,14 +63,12 @@ def parse_users(
     """
     Parse user about me pages. Returns a tuple containing the following:
         * Undirected graph, where an edge exists between player A and B iff player A mentions player B.
-        * Map from (current) username to number of mentions by other players.
         * Map from (current) username to global rank.
     Usernames found in specified txt file will not contribute to mention data for the associated user.
     """
     print(f"\n--- Parsing data for {len(users)} users...")
     alias_to_current = {}
     current_to_rank = {}
-    current_to_about_me = {}
     mentions_graph = classes.DirectedGraph()
     username_trie = classes.Trie()
 
@@ -87,12 +89,16 @@ def parse_users(
             alias_to_current[current_username] = current_username
 
         previous_usernames = user["previous_usernames"]
+
+        # Also storing "users/<UID>" as an alias, in order to account for collabs that use user ID instead of username.
+        # See: https://github.com/mbalsdon/osu-about-me-graph/issues/18
+        previous_usernames.append(f"users/{user['user_id']}")
+
         for previous_username in previous_usernames:
             if previous_username not in alias_to_current:
                 alias_to_current[previous_username] = current_username
 
         current_to_rank[current_username] = user["global_rank"]
-        current_to_about_me[current_username] = user["about_me"]
 
         if current_username in ignored_usernames:
             ignored_username_hits += 1
@@ -130,7 +136,7 @@ def parse_users(
 
     if save_json:
         print(f"JSON flag was set; saving to {json_filename}...")
-        save_to_json(mentions_graph, current_to_rank, current_to_about_me, json_filename)
+        save_to_json(mentions_graph, users, ignored_usernames, json_filename)
 
     return mentions_graph, current_to_rank
 

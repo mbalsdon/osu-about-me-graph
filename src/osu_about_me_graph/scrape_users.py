@@ -129,6 +129,7 @@ async def fetch_single_user(
             counter.print_progress_bar()
 
             return {
+                "user_id": user.id,
                 "current_username": user.username.lower(),
                 "previous_usernames": [pu.lower() for pu in user.previous_usernames],
                 "about_me": user.page.raw,
@@ -199,6 +200,7 @@ async def scrape_users(start_rank: int, num_users: int, gamemode: ossapi.GameMod
     Scrape user data from osu!API.
     If use_last_run is True, ignores num_users and reads data from save_filename.\n
     Returns list of users including:
+        * "user_id": `int`
         * "current_username": `str`
         * "previous_usernames": `list[str]`
         * "about_me": `str`
@@ -216,8 +218,11 @@ async def scrape_users(start_rank: int, num_users: int, gamemode: ossapi.GameMod
     if num_users < 1 or num_users > 10000:
         raise ValueError(f"Number of users must be between 1-10000!")
 
-    first_page = math.floor((start_rank - 1) / 50) + 1
-    num_pages = math.ceil((start_rank + num_users - 1) / 50)
+    # users ∈ [start_rank, end_rank]
+    end_rank = start_rank + num_users - 1
+    start_page = math.ceil(start_rank / 50)
+    end_page = math.ceil(end_rank / 50)
+    num_pages = end_page - start_page + 1
     print(f"\n--- Scraping osu!API data for {num_users} users...")
 
     # Get rid of log spam caused by ossapi
@@ -228,12 +233,12 @@ async def scrape_users(start_rank: int, num_users: int, gamemode: ossapi.GameMod
         os.getenv("OSU_API_CLIENT_ID"),
         os.getenv("OSU_API_CLIENT_SECRET"))
 
-    user_ids = await fetch_rankings_ids(osu, gamemode, first_page, num_pages)
+    user_ids = await fetch_rankings_ids(osu, gamemode, start_page, num_pages)
     users = await fetch_users(osu, gamemode, user_ids)
-    
+
     # Remove excess users
-    num_remove_from_back = (50 - (num_users % 50)) % 50
-    num_remove_from_front = (start_rank - 1) % 50
+    num_remove_from_front = start_rank - ((start_page - 1) * 50) - 1
+    num_remove_from_back = (end_page * 50) - end_rank
     print(f"Removing {num_remove_from_back + num_remove_from_front} excess users...")
 
     users = [u for u in sorted(users, key=lambda user: (user["global_rank"]), reverse=False)]
@@ -241,6 +246,10 @@ async def scrape_users(start_rank: int, num_users: int, gamemode: ossapi.GameMod
         users = users[num_remove_from_front:]
     if num_remove_from_back != 0:
         users = users[:-num_remove_from_back]
+
+    # assert len([u["global_rank"] for u in users]) == num_users
+    # assert min([u["global_rank"] for u in users]) == start_rank
+    # assert max([u["global_rank"] for u in users]) == end_rank
 
     # Turn it back on now that we're done with the noisy stuff
     logging.getLogger("asyncio").setLevel(asyncio_default_log_level)

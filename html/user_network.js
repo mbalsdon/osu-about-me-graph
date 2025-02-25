@@ -3,7 +3,7 @@
  * You have to populate these yourself using the python tool.
  * Make sure to place them in the same directory as this file.
  * You don't have to add them all, but if you don't, make sure to append the mode param.
- * For example, if you only have graph_data_taiko.json, you will need to open .../user_network.html?mode=taiko in your browser.
+ * For example, if you only have graph_data_taiko.json, you will need to open .../index.html?mode=taiko in your browser.
  *
  * See README.md for more information.
  */
@@ -23,8 +23,11 @@ const GAMEMODES = ['osu', 'taiko', 'mania', 'fruits'];
 const RANK_RANGE_SIZE = 100;
 
 let cy;
-let currOutgoers;
+let selectedUserOutgoingUsernames = [];
 let profileDataOpen = false;
+let graphDataIgnored = [];
+let ignoredStr = "";
+let ignoredOpen = false;
 let aboutOpen = false;
 let isResizing = false;
 let startY, startHeight;
@@ -91,7 +94,14 @@ function openInfoPanel(nodeData) {
     ).join('<br>');
 
     // Gstate to avoid quoting problems from passing into inlined fn yesssssssss this is bad whatever man 
-    currOutgoers = node.outgoers().nodes().map(n => `${n.id()}`);
+    selectedUserOutgoingUsernames = [];
+    for (const outgoer of node.outgoers().nodes()) {
+        selectedUserOutgoingUsernames.push(outgoer.id());
+        for (const prevUsername of outgoer.data('previous_usernames')) {
+            if (prevUsername.startsWith('users/')) selectedUserOutgoingUsernames.push(prevUsername.substring(6));
+            else selectedUserOutgoingUsernames.push(prevUsername);
+        }
+    }
 
     document.getElementById('infoTitle').innerHTML = `
         <a href="#" onclick="handleNodeClick('${nodeData.id}'); return false;" class="href" onmouseover="this.style.color='#0088ff'" onmouseout="this.style.color='#00aaff'">
@@ -137,10 +147,10 @@ function openProfileData(id, encodedAboutMe) {
     const modal = document.createElement('div');
     modal.className = 'modalText';
 
-    const highlighted = aboutMe.replace(
-        new RegExp(currOutgoers.map(s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'), 'gi'),
+    let highlighted = aboutMe.replace(
+        new RegExp(selectedUserOutgoingUsernames.map(s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'), 'gi'),
         match => `<span style="background-color: #cfb600; color: black;">${match}</span>`
-    )
+    );
 
     modal.innerHTML = `
         <h2>${id}</h2>
@@ -171,11 +181,47 @@ function openProfileData(id, encodedAboutMe) {
 }
 
 /**
- * Close "what is this" modal.
+ * Format and store ignored usernames to global var
  */
-function closeAboutPanel() {
-    document.getElementById('aboutPanel').classList.remove('visible');
-    cy.elements().removeClass('highlighted dimmed');
+function formatIgnoredUsernames(ignoredUsernames) {
+    graphDataIgnored = ignoredUsernames;
+    for (const ignoredUsername of ignoredUsernames) ignoredStr += `<div style="margin-bottom: 1px;">• ${ignoredUsername}</div>`;
+}
+
+/**
+ * Open "ignored usernames" modal.
+ */
+function openIgnoredPanel() {
+    if (ignoredOpen) { return; }
+    ignoredOpen = true;
+
+    const overlay = document.createElement('div');
+    overlay.className = 'modal';
+
+    const modal = document.createElement('div');
+    modal.className = 'modalText';
+
+    const style = document.createElement('style');
+    document.head.appendChild(style);
+    modal.classList.add('modal');
+
+    modal.innerHTML = `
+        <div style="white-space: pre-line">
+            <strong style="font-size: 26px">List of Ignored Usernames</strong>\n
+            ${ignoredStr}
+        </div>
+        <button onclick="this.parentElement.parentElement.remove(); ignoredOpen = false;" style="position: absolute; top: 10px; right: 10px; background: none; border: none; color: white; font-size: 20px; cursor: pointer;">×</button>
+    `;
+
+    overlay.onclick = (e) => {
+        if (e.target === overlay) {
+            overlay.remove();
+            ignoredOpen = false;
+        }
+    };
+
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
 }
 
 /**
@@ -204,7 +250,7 @@ function openAboutPanel(numUsers) {
         </div>
         <div style="white-space: pre-line">
             <strong style="font-size: 26px">A Few Notes</strong>\n
-            <div style="margin-bottom: 1px;">• Some usernames have been filtered out because they trigger false-positives. For example, mentions may incorrectly be attributed to the player "wooting" if a player lists "wooting" in the keyboard specs on their page. You can see ignored usernames <a href="./ignore_usernames.txt" target="_blank" class="href" onmouseover="this.style.color='#0088ff'" onmouseout="this.style.color='#00aaff'">here</a>.</div>
+            <div style="margin-bottom: 1px;">• Some usernames have been filtered out because they trigger false-positives. For example, mentions may incorrectly be attributed to the player "wooting" if a player lists "wooting" in the keyboard specs on their page.</div>
             <div style="margin-bottom: 1px;">• Past usernames are taken into account. For example, if someone mentions "cookiezi" but their current username is "chocomint", the algorithm will correctly attribute 2 mentions to "chocomint".</div>
             <div style="margin-bottom: 1px;">• Rename conflicts are resolved to the best of the algorithm's ability. For example, if "shigetora" renames to "cookiezi", the name "shigetora" can be taken by somebody else. In this case, mentions are attributed to the player with more followers.</div>
             <div style="margin-bottom: 1px;">• Username reverts are unaccounted for. If "kurtis-" requests a username revert from osu! staff back to "Sour_Key", the name "kurtis-" gets erased from osu!'s side, and thus mentions to "kurtis-" won't be able to be considered.</div>
@@ -330,6 +376,7 @@ async function loadAndDisplayGraph(gamemode) {
         let start = performance.now();
         const response = await fetch(getJsonFilename(gamemode), {cache: 'no-store'});
         const graphData = await response.json();
+        formatIgnoredUsernames(graphData['ignored']);
         let end = performance.now();
         console.log(`Graph load took ${(end - start) / 1000} seconds.`);
 
@@ -576,6 +623,22 @@ function setupSourceButton() {
 }
 
 /**
+ * Setup ignored usernames button.
+ */
+function setupIgnoredButton() {
+    const ignoredButton = document.getElementById('ignoredButton');
+    ignoredButton.addEventListener('mouseover', () => {
+        ignoredButton.style.backgroundColor = '#333';
+    });
+
+    ignoredButton.addEventListener('mouseout', () => {
+        ignoredButton.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
+    });
+
+    ignoredButton.addEventListener('click', () => { openIgnoredPanel(); });
+}
+
+/**
  * Setup download button.
  */
 function setupDownloadButton(gamemode) {
@@ -596,7 +659,8 @@ function setupDownloadButton(gamemode) {
             })),
             edges: cy.edges().map(edge => ({
                 data: edge.data()
-            }))
+            })),
+            ignored: graphDataIgnored
         };
         const dataStr = JSON.stringify(staticGraphData, null, 2);
         const dataBlob = new Blob([dataStr], { type: 'application/json' });
@@ -658,6 +722,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setupSearch();
     setupGamemodeDropdown();
     setupSourceButton();
+    setupIgnoredButton();
     setupDownloadButton(gamemode);
     setupInfoPanelResizeHandle();
 });
