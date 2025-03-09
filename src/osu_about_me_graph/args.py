@@ -20,6 +20,13 @@ def parse_arguments() -> None:
     )
 
     parser.add_argument(
+        "--no-analysis-report",
+        help="don't run graph analysis algorithms and generate a report",
+        action="store_true",
+        required=False
+    )
+
+    parser.add_argument(
         "--no-graph",
         help="don't generate an image of the graph",
         action="store_true",
