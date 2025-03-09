@@ -42,7 +42,7 @@ If you want the gamemode selection dropdown menu to work, you will have to popul
 ## Features
 For a list of all customization flags, run `osu_mentions -h`.
 - Gamemode selection (osu, taiko, mania, catch) and user rank selection (i.e. build a graph for users ranked #324 - #727)
-- Rich customization support for graph generation including:
+- Rich customization support for graph visualization including:
     - Rank-range selection, clustering strength, and connection strength (i.e. build a graph where users with ranks #1-#100, #101-#200, etc. are tightly packed in clusters).
     - Node centralization parameters (i.e. group users around the center where more-mentioned ones are pulled closer/farther)
     - All of the other good stuff - edge curvature/width, image size/DPI, legend/label/node customization, and more!
@@ -50,6 +50,7 @@ For a list of all customization flags, run `osu_mentions -h`.
 - Takes all previous usernames into account; i.e. if players reference 'ryuk' in their profile but he renames to 'connor mcdavid', mentions will still be tallied.
 - Automatically resolves rename conflicts; i.e. if players reference 'shigetora' in their profile but he renames to 'chocomint' and someone else takes the name 'shigetora', mentions will be correctly attributed to 'chocomint'.
 - Generates a configurable 'possible false-positives report' which demarcates usernames that may incorrectly be receiving mention tallies because of their common use in profile pages ('hello', 'wooting', 'hddt', etc.). These usernames can then subsequently be ignored by their addition to a TXT file.
+- Generates a 'graph analysis report' containing results from a few well-known graph theory algorithms (HITS, PageRank, Louvain community detection, betweenness centrality, etc.).
 - PNG format (using networkX) and interactive HTML/JS format (using cytoscape.js)
 
 ## Contributing

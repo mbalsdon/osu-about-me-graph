@@ -1,5 +1,6 @@
 from . import args
 from .generate_graph import generate_graph
+from .graph_analysis_report import graph_analysis_report
 from .parse_users import parse_users
 from .report_false_positives import report_false_positives
 from .scrape_users import scrape_users
@@ -42,6 +43,7 @@ async def main() -> None:
 
     save_json = args.ARGS.save_json
     big_nodes_closer = args.ARGS.big_nodes_closer
+    no_analysis_report = args.ARGS.no_analysis_report
     no_graph = args.ARGS.no_graph
     no_legend = args.ARGS.no_legend
     use_last_run = args.ARGS.use_last_run
@@ -72,6 +74,7 @@ async def main() -> None:
 
     save_filename = "users.pkl"
     report_filename = "false_positives.md"
+    analysis_report_filename = "graph_analysis.md"
     ignore_usernames_filename = "ignore_usernames.txt"
     image_filename = "user_network.png"
     json_filename = "html/graph_data_" + gamemode.value + ".json"
@@ -106,7 +109,7 @@ async def main() -> None:
     )
 
     # Generate false-positives report
-    _, report_min = sync_timer(
+    _, report_false_positives_min = sync_timer(
         report_false_positives,
             users,
             mentions_graph,
@@ -119,6 +122,14 @@ async def main() -> None:
     # Clean up before explode PC
     del users
     gc.collect()
+
+    # Generate graph analysis report
+    _, graph_analysis_report_min = sync_timer(
+        graph_analysis_report,
+            mentions_graph,
+            analysis_report_filename,
+            no_analysis_report
+    )
 
     # Generate graph
     _, graphgen_min = sync_timer(
@@ -152,6 +163,8 @@ async def main() -> None:
 
     if not no_graph:
         print(f"You can find the image at \"{image_filename}\"")
+    if not no_analysis_report:
+        print(f"You can find graph analysis values at \"{analysis_report_filename}\"")
     print(f"Ignored usernames can be found at \"{ignore_usernames_filename}\"")
     print(f"Possible false-positives can be found at \"{report_filename}\"")
     if not use_last_run:
@@ -162,8 +175,10 @@ async def main() -> None:
 
     if not use_last_run:
         print(f"API scraping took {round(scrape_min, 4):.4f} minutes.")
-    print(f"False-positive search took {round(report_min, 4):.4f} minutes.")
     print(f"User data parsing took {round(parse_min, 4):.4f} minutes.")
+    print(f"False-positive search took {round(report_false_positives_min, 4):.4f} minutes.")
+    if not no_analysis_report:
+        print(f"Graph analysis took {round(graph_analysis_report_min, 4):.4f} minutes.")
     if not no_graph:
         print(f"Graph generation took {round(graphgen_min, 4):.4f} minutes.")
     print("\n", end="")
