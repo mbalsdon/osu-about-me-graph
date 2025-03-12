@@ -35,13 +35,13 @@ def graph_analysis_report(mentions_graph: classes.DirectedGraph, analysis_report
     # Convert graph
     G = create_nx_graph(mentions_graph)
 
+    # PageRank
+    pagerank = networkx.pagerank(G, alpha=0.6)
+    pagerank = sorted(pagerank.items(), key=lambda user: user[1], reverse=True)
+
     # Betweenness centrality
     betweenness_centrality = networkx.betweenness_centrality(G)
     betweenness_centrality = sorted(betweenness_centrality.items(), key=lambda user: user[1], reverse=True)
-
-    # PageRank
-    pagerank = networkx.pagerank(G)
-    pagerank = sorted(pagerank.items(), key=lambda user: user[1], reverse=True)
 
     # HITS
     (hits_hubs, hits_authorities) = networkx.hits(G)
@@ -64,15 +64,15 @@ def graph_analysis_report(mentions_graph: classes.DirectedGraph, analysis_report
     # Build report
     lines = ["### Graph Analysis Report",]
 
-    lines.extend(["\n---", "**Betweenness Centrality**"])
-    lines.append("\n```")
-    for user in betweenness_centrality:
-        lines.append(f"{user[0]} : {user[1]:.8f}")
-    lines.append("```")
-
     lines.extend(["\n---", "**PageRank**"])
     lines.append("\n```")
     for user in pagerank:
+        lines.append(f"{user[0]} : {user[1]:.8f}")
+    lines.append("```")
+
+    lines.extend(["\n---", "**Betweenness Centrality**"])
+    lines.append("\n```")
+    for user in betweenness_centrality:
         lines.append(f"{user[0]} : {user[1]:.8f}")
     lines.append("```")
 

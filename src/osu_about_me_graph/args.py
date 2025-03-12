@@ -105,6 +105,13 @@ def parse_arguments() -> None:
     )
 
     parser.add_argument(
+        "--fp-min-followers",
+        help="minimum number of followers necessary to be included in false-positives report [int >= 0]",
+        type=int,
+        required=False
+    )
+
+    parser.add_argument(
         "--fp-max-followers",
         help="maximum number of followers necessary to be included in false-positives report [int >= 0]",
         type=int,
@@ -239,6 +246,9 @@ def parse_arguments() -> None:
     if ARGS.env_path is None:
         ARGS.env_path = os.path.join(os.getcwd(), ".env")
 
+    if ARGS.fp_min_followers is None:
+        ARGS.fp_min_followers = 0
+
     if ARGS.fp_max_followers is None:
         ARGS.fp_max_followers = 1000
 
@@ -314,6 +324,10 @@ def parse_arguments() -> None:
 
     if not os.path.exists(ARGS.env_path):
         error_messages += f"Could not find environment variable file at '{ARGS.env_path}'! You can specify its location with the --env-path flag.\n"
+        do_exit = True
+
+    if ARGS.fp_min_followers < 0:
+        error_messages += "FP min followers must be greater than or equal to zero!\n"
         do_exit = True
 
     if ARGS.fp_max_followers < 0:

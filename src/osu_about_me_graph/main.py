@@ -55,6 +55,7 @@ async def main() -> None:
     edge_curvature = args.ARGS.edge_curvature
     edge_width = args.ARGS.edge_width
     env_path = args.ARGS.env_path
+    fp_min_followers = args.ARGS.fp_min_followers
     fp_max_followers = args.ARGS.fp_max_followers
     fp_mentions_top_percentile = args.ARGS.fp_mentions_top_percentile
     gamemode = args.ARGS.gamemode
@@ -114,6 +115,7 @@ async def main() -> None:
             users,
             mentions_graph,
             fp_mentions_top_percentile,
+            fp_min_followers,
             fp_max_followers,
             report_filename,
             ignore_usernames_filename

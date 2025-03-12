@@ -194,6 +194,57 @@ in wonderland
 seishun complex
 silence
 moment
+like
+webp
+cool
+do not
+house
+ai no sukima
+rise
+whoever
+december 19th
+hallo
+ina
+ass
+saved
+chill guy
+ends
+blue archive
+clutch
+speed prodigy
+aim trainer
+i love tuyu
+mindblock
+death
+tights
+lane
+failing
+aaa
+aim slop
+smh
+creator
+okayu
+
+### maybe a controversial ignore, but in the random sample 7/10 were incorrect mentions, e.g. critical crystal, snow crystal 185, etc. (2025-03-12)
+crystal
+
+### also maybe controversial, but in the random sample 8/10 were incorrect mentions,. e.g. virtual riot, the phrase "xyz or riot", tracker.gg/valorant/profile/riot/<username> (as in riot games), etc. (2025-03-12)
+riot
+
+### from the random sample, all mentions were incorrect (either references to the anime character or the player "serafeim"). (2025-03-12)
+makise kurisu
+
+### unofficial alias for "MomoHD", the score farmer. also a substring of "duckie momo" (2025-03-12)
+momo
+
+### substring of "gawr gura", who the large majority of mentions point at (2025-03-12)
+gura
+
+### substring of "sakura miko", who the large majority of mentions point at (2025-03-12)
+miko
+
+### substring of "mori calliope", who the large majority of mentions point at (2025-03-12)
+calliope
 
 ############## TAIKO ##################################################################################################
 you
@@ -220,6 +271,74 @@ front
 usual
 gud
 bfkb113pbk
+taiko
+the
+annoying
+que
+love
+thank
+space
+cog
+owc
+dt2
+nm2
+nomod
+origins
+wacom ctl-472
+halftime
+727
+your name
+unique
+american
+flashlight
+175
+activity
+nightmare
+pog
+holic
+ice angel
+vtuber
+dice
+ing
+filipino
+flying
+trol
+ruby
+hoshizora
+eww
+497
+touhou project
+translator
+smooth
+saya
+vanilla
+wwwwww
+aorus
+sure
+mat
+whatever
+987
+peepee
+golden
+garden
+petit
+1995
+3497
+1 x
+10n
+mew
+raiden
+laps
+reflection
+
+### substring of "tourney" - the player is popular but luckily most mentions go to other aliases of theirs (2025-03-12) 
+ney
+
+### many artists by this name (2025-03-12)
+tanaka
+
+### substring of "spicy onion", who the large majority of mentions point at (2025-03-12)
+onion
 
 ############## MANIA ##################################################################################################
 mania
@@ -232,6 +351,67 @@ pattern
 winter
 tiebreaker
 coach
+tachyon
+etternaonline
+vsrg
+wiki
+beatmap
+fallen symphony
+jumpstreams
+star rating
+skibidi
+speedjack
+eyes
+sun
+osumania
+ride
+mapped
+breast
+goated
+reflec
+nothing here
+scale
+begin
+conversation
+eternal drain
+retina
+erase
+heard
+yooh
+mario paint
+acc main
+dj sharpnel
+silly
+eliminate
+laptop keyboard
+j k l
+per
+transcendence
+hong
+109
+-_-
+near
+[-]
+peaceful
+nkeyboard
+shorts
+modern 
+soup
+
+### substring of "usie.s-ul.eu/wvhz02j9?format=webp&width=1280&height=428". while it is an image hosted on usie's s-ul, i wouldnt call it a mention (2025-03-12)
+usie
+
+# happens surprisingly alot in [imagemap] position parameters (e.g. 54.3 74.2 8.4 3.4) (2025-03-12)
+3 7
+
+### substring of "-oni-chan-", who the large majority of mentions point at (2025-03-12)
+chan-
+
+### substring of "s01.flagcounter.com", which people seem to like to use (2025-03-12)
+s01
+
+### substring of "iwayako_yuri", who the large majority of mentions point at. also conflicts with, yenno, the other word (2025-03-12)
+yuri
 
 ############## CATCH ##################################################################################################
 ctb
@@ -268,18 +448,96 @@ breath
 bomb
 len
 fast
+www
+first
+anything
+through
+mix
+first time
+import
+half
+scroll
+based
+del
+waifu
+[strike]
+philippines
+oldest
+fight
+nightcore mix
+s3rl
+positive
+123
+candy
+kirby
+despacito
+graph
+held
+spam
+malicious
+121
+scene
+amp
+empire
+dashing
+chase
+050
+demo
+sunshine
+blind
+intention
+metadata
+vip
+eos
+snap
+disgusting
+c18h27no3
+mistakes
+pin
+masterpiece
+257
+bash
+suicide
+ass
+salamat
+full moon
+had
+sayo
+rolling
+mili
+wwwww
+haruka
+we are so back
+moved on
+depth
+shk
+romance
+romania
+thankyou
+
+### slight majority to incorrect mentions; substring of "dj verstarker", "fern/stark" (from frieren anime), "tony stark" (2025-03-12)
+stark
+
+### substring of "lechu faq 35p", who the large majority of mentions point at (2025-03-12)
+35p
+
+### substring of "suzuki konomi", the artist (2025-03-12)
+suzuki
+
+### unofficial(?) alias for "D I O", the caster/personality (2025-03-12) 
+dio
 
 ############## AMBIGUOUS NAMES ##################################################################################################
 ### Popular players that are also used as common words (or parts of them). They are not ignored here by default.
 ### - plasma
 ### - toy
-### - creator
-### - lane
-### - francois
 ### - 227
-### - ends
-### - golden
-### - mew
 ### - ery
-### - skibidi
 ### - tomato
+### - oui
+### - magma
+### - eltigant
+### - mile
+### - kings
+### - cowboy
+### - meg
